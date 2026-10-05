@@ -1,0 +1,3 @@
+# Store every file byte-exactly. The batch and VBScript launchers must keep the line endings
+# they were written with; a checkout that rewrites them can break `goto` labels in .cmd files.
+* -text

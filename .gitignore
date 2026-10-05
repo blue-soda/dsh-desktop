@@ -1,0 +1,5 @@
+# Written by maintenance/set-taskbar-identity.ps1 on every run.
+maintenance/shortcut-writer/result.json
+
+# Python bytecode produced by make-icons.py.
+__pycache__/

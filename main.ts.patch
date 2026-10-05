@@ -1,0 +1,30 @@
+diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
+index b4b8153b7f..7e32351059 100644
+--- a/apps/desktop/src/main.ts
++++ b/apps/desktop/src/main.ts
+@@ -210,6 +210,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+     minWidth: 520,
+     minHeight: 600,
+     show,
++    // An unpackaged launch has no application icon of its own, so Windows would show Electron's
++    // in the taskbar and the alt-tab switcher. Packaged builds keep their signed executable icon.
++    ...(process.platform === 'win32' && !app.isPackaged ? {
++      icon: nativeImage.createFromPath(join(app.getAppPath(), 'resources', 'icon-windows.ico')),
++    } : {}),
+     ...(process.platform === 'win32' && primary ? {
+       titleBarStyle: 'hidden' as const,
+       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
+@@ -1333,6 +1338,13 @@ async function main(): Promise<void> {
+   publishUpdate(updateState)
+ }
+ 
++// An unpackaged launch declares no application identifier, so Windows groups its taskbar
++// button — and the shortcut "Pin to taskbar" writes — under electron.exe: the entry reads
++// "Electron" and the pin relaunches a bare Electron window. A stable AppUserModelID here,
++// matching the shortcut, gives the running window and that shortcut one taskbar identity.
++// The packaged build keeps the identifier electron-builder derives from its own appId.
++if (process.platform === 'win32' && !app.isPackaged) app.setAppUserModelId('com.deepseek.harness.dev')
++
+ const ownsDesktopInstance = claimDesktopSingleInstance(app, () => { focusPrimaryWindow() })
+ 
+ if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unknown) => {
