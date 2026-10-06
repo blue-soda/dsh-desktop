@@ -1,11 +1,14 @@
 # DSH 使用体验恢复包（dsh-restore-kit）
 
-把 Electron 开发版的 DeepSeek Harness Desktop 恢复成你习惯的样子，共三块：
+把 Electron 开发版的 DeepSeek Harness Desktop 恢复成你习惯的样子。本仓库同时发布**打包好的定制版安装包**（[最新 Release](https://github.com/blue-soda/dsh-restore-kit/releases/latest)）。
+
+定制共五块：
 
 1. **图标外观** —— 窗口/任务栏图标、托盘图标、关于面板图标、桌面快捷方式图标
 2. **启动方式** —— 无终端窗口的快捷方式、快速启动脚本、`dsh` 进 TUI 的命令
 3. **冷启动性能** —— Windows Defender 排除项（消除实时扫描造成的冷启动开销）
 4. **任务栏身份** —— 让固定到任务栏的项目显示为 DSH，而不是 Electron
+5. **自带插件** —— 安装包内置 `ds-harness-remote` 并默认启用（见下方「自带的 remote 插件」）
 
 本包是自包含的：换电脑或重新 clone 仓库后照下面做一遍即可复原。
 
@@ -26,6 +29,32 @@
 
 > 图标都能由 `source.png` + `make-icons.py` 重新生成（输出确定），所以 `generated/` 与 `bin/dsh-desktop.ico`
 > 属于**冗余保险**而非必需品。改动余量或裁剪方式后请重新生成，并同步覆盖这两处副本，避免与脚本输出不一致。
+
+## 自带的 remote 插件
+
+发布的安装包内置 [`ds-harness-remote`](https://github.com/blue-soda/ds-harness-remote)，用于从其他设备远程接入本机的 DSH。它**随包安装、默认启用**，用户不需要自己 `dsh plugin add`。
+
+**它是怎么进去的**：插件 tarball 放在 DSH 仓库的 `apps/desktop/vendor/`，构建时打进运行时，并写进运行时里 `@deepseek-ai/dsh` 的依赖清单。最后一步不能省——profile 启动时按**安装清单的依赖图**解析插件行的包名，清单没声明就会解析失败：该行拿不到 fiber，插件页显示「已启用 / 未运行」，UI 也不会出现。
+
+**默认配置**：新建 profile 时会在 `%USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml` 写入下面这段；此后由用户自己维护，升级不会覆盖已有条目。
+
+```yaml
+- id: ds-harness-remote
+  config:
+    enabled: true
+    role: both                  # host 与 client 同时启用
+    serverUrl: https://sakakibara.ink:8443
+    codex:
+      enabled: true
+```
+
+| 项 | 说明 |
+|---|---|
+| `role` | `host`（本机作为被接入端）/ `client`（本机作为接入端）/ `both`。发行版默认 `both`，启动时会分别建立两套设备身份 |
+| `serverUrl` | 连接的中继服务器。发行版固定指向 `https://sakakibara.ink:8443` |
+| **首次连接要授权** | 设备凭证**不随包分发**（否则所有安装会共用同一个设备身份），用户需在 Remote 界面完成一次授权 |
+| **隐私** | 启用后插件会与该服务器建立连接，并在 `%USERPROFILE%\.dsh\remote\` 下生成设备密钥与服务器凭证 |
+| **关闭方式** | 把上面 `enabled` 改成 `false`，或删掉整段；改完重启应用生效 |
 
 ## 图标定制由三部分组成
 
