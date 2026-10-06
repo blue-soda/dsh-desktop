@@ -1,6 +1,6 @@
-# DSH 使用体验恢复包（dsh-restore-kit）
+# DSH Desktop 定制版构建工具（dsh-desktop）
 
-把 Electron 开发版的 DeepSeek Harness Desktop 恢复成你习惯的样子。本仓库同时发布**打包好的定制版安装包**（[最新 Release](https://github.com/blue-soda/dsh-restore-kit/releases/latest)）。
+从上游源码产出一份**定制版 DeepSeek Harness Desktop**（Windows x64）：一条命令构建，并发布到 [最新 Release](https://github.com/blue-soda/dsh-desktop/releases/latest)。本仓库同时保存这套定制的**全部真源**——单一补丁、图标资源、提权脚本与启动器，换台电脑也能重建。
 
 定制共五块：
 
@@ -10,7 +10,7 @@
 4. **任务栏身份** —— 让固定到任务栏的项目显示为 DSH，而不是 Electron
 5. **自带插件** —— 安装包内置 `ds-harness-remote` 并默认启用（见下方「自带的 remote 插件」）
 
-本包是自包含的：换电脑或重新 clone 仓库后照下面做一遍即可复原。
+本包是自包含的：换电脑或重新 clone 仓库后，可以用 `dsh-desktop.patch` + 一条命令重新产出安装包（见「一键构建」），也可以照下面各节手工复原。
 
 ## 包含什么
 
@@ -19,22 +19,76 @@
 | `source.png` | 源美术图（透明背景 PNG，越大越好） |
 | `make-icons.py` | 生成脚本：居中补方 → 按模式裁剪（默认 `--mode head` 头部特写，`--mode full` 整身）→ 收紧到内容边界 + 2% 余量 |
 | `main.ts.patch` | `apps/desktop/src/main.ts` 的**两处**源码改动：窗口图标 + 未打包启动的 AppUserModelID |
-| `apply-icons.ps1` | 一键：生成资源 + 检查/应用 patch + 提示构建（没有 Python 时自动退回预生成副本） |
+| `dsh-desktop.patch` | **完整**的 DSH 侧改动（图标资源与源码、提权对话框、内置插件机制）。`build-release.cmd` 把它打到上游基线上，是"新电脑一键重建"的唯一真源 |
+| `build-release.cmd` + `tools/*.mjs` | **一键构建**：隔离 clone → 打补丁 → 写打包环境 → 装依赖 → 出 exe → 校验和与发行说明（可加 `-Verify` / `-Upload`） |
+| `.env.windows.template` | 打包环境模板（appId、更新环境、策略源站），构建时写入隔离 checkout |
+| `release-notes.template.md` | 发行说明模板，构建时自动填入 SHA256、体积与实际解析到的插件版本 |
+| `apply-icons.ps1` | 一键：生成资源 + 检查/应用 patch + 提示构建（没有 Python 时自动退回预生成副本）。**这是本仓库保留的唯一 `.ps1`**，只用于重新生成图标，不参与构建 |
 | `generated/` | 三个仓库资源的**预生成副本**，仅在无法运行 `make-icons.py` 时使用（无 Python/Pillow） |
 | `bin/` | 机器级启动器副本（`dsh.cmd` 进 TUI、`dsh-desktop.cmd` 快速启动、`dsh-desktop-full.cmd` 完整准备、`dsh-desktop.vbs` 无窗口包装） |
 | `bin/dsh-desktop.ico` | **桌面快捷方式图标**。它不在仓库里，`make-icons.py` 也只在 `%USERPROFILE%\bin` 已存在时才写；放进包里可去掉"先拷脚本再生成"的顺序依赖 |
-| `maintenance/defender-exclusions.ps1` | 添加/移除 Windows Defender 的三个路径排除项，消除冷启动时的实时扫描成本。自助提权，`-Remove` 可撤销 |
-| `maintenance/set-taskbar-identity.ps1` | 把同一个 AUMID 写进桌面与开始菜单快捷方式，修复"固定到任务栏显示 Electron" |
+| `maintenance/defender-exclusions.cmd` | 添加/移除 Windows Defender 排除项，消除冷启动时的实时扫描成本。自助提权，`-Remove` 可撤销；**内部用一行内联 `powershell -NoProfile -Command "Add-MpPreference …"`**（见下「为什么还有 powershell.exe」） |
+| `maintenance/set-taskbar-identity.cmd` | 把同一个 AUMID 写进桌面与开始菜单快捷方式，修复"固定到任务栏显示 Electron" |
 | `maintenance/shortcut-writer/` | 上面脚本调用的极小 Electron 应用（用 `shell.writeShortcutLink` 写快捷方式并输出 `result.json`） |
 
 > 图标都能由 `source.png` + `make-icons.py` 重新生成（输出确定），所以 `generated/` 与 `bin/dsh-desktop.ico`
 > 属于**冗余保险**而非必需品。改动余量或裁剪方式后请重新生成，并同步覆盖这两处副本，避免与脚本输出不一致。
 
+## 一键构建（build-release.cmd）
+
+从零产出安装包。**构建完全隔离在本仓库的 `build\` 目录内**（clone 上游、装依赖、打包、产物都在那里），不会改动你其它的 checkout。
+
+```bat
+build-release.cmd -Tag r4 -Verify          :: 构建 + 探针
+build-release.cmd -Tag r4 -Verify -Upload  :: 再加发布到 Release
+build-release.cmd -Clean                   :: 只清理 build\、dist\ 与本工具自己的临时文件
+```
+
+流程：预检（git/node/pnpm/gh）→ 在 `build\dsh` clone 上游（`--filter=blob:none`）→ `checkout --force <Base>` + `clean` + `git apply dsh-desktop.patch`（**每次从干净基线开始，可重复运行**）→ 写 `apps\desktop\.env.windows` → `pnpm install` → `package:win:x64:unsigned` → 把 exe 与 `.blockmap` 复制到 `dist\`，生成 `SHA256SUMS.txt` 与发行说明。
+
+| 选项 | 说明 |
+|---|---|
+| `-Tag <name>` | 发布标签，默认 `r` + 时间戳；也用于发行说明与 `-Upload` |
+| `-Base <commit>` | 上游基线，默认 `5badb15009` |
+| `-Source <url>` | 上游仓库，默认官方 GitHub 仓库。**网络不通时**可指向本地已有的 checkout（如 `-Source C:\Workspace\deepseek-harness`）：`git clone` 只读该目录，隔离性不变，而且 `origin` 会指向它，后续 fetch 也不再依赖网络 |
+| `-Clean` | 只清理 `build\`、`dist\`，以及本工具自己的 `%TEMP%\dsh-verify-*`、`dsh-build-*`、`dsh-defender-exclusions.*` |
+| `-Verify` | 构建后跑三项断言（见下） |
+| `-Upload` | `gh release create`，**默认关闭** |
+
+**首次耗时**：clone + `pnpm install` + 运行时准备，视网络约 30–60 分钟；之后复用 `build\dsh` 会明显更快（每次仍会重置到基线并重打补丁）。
+
+**常见失败与排查**
+
+| 现象 | 原因与处理 |
+|---|---|
+| `download:electron ... fetch failed` | 访问 GitHub 下载 CDN 失败。脚本已固定设置 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`；仍然失败时多为网络抖动，稍后重跑即可 |
+| `pnpm install` 卡住或失败 | registry 慢/被挡。在 `.env.windows.template` 里放开 `DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com`，重跑 |
+| 磁盘不足 | 运行时 + Electron + 产物需要数 GB；脚本在剩余空间 < 20 GB 时告警 |
+| `git apply` 失败 | `dsh-desktop.patch` 与 `-Base` 不匹配。确认 `-Base` 是导出补丁时的那个提交 |
+
+**`-Verify` 的三项断言**：
+
+1. 运行时里 `@deepseek-ai/dsh` 的清单声明了内置插件——profile 启动按安装清单的依赖图解析插件行的包名，缺声明就会解析失败：该行拿不到 fiber，插件页显示"已启用 / 未运行"。
+2. 用打包树对一个临时 profile 跑 `loadProfileDirectory` + `createRuntimeResolution`，断言 `skippedBundles` 为空且插件为 `mapped: true`。
+3. 运行时里的插件 `dist` 与 **npm 上同版本**的内容逐文件比对；拉不到 npm 时报告 `SKIP`，**不会伪装通过**。
+
+### 为什么还有 `powershell.exe`
+
+Windows 上**添加 Defender 排除项没有非 PowerShell 的受支持接口**：只有 `Add-MpPreference`，而直接改写排除项的注册表值在篡改防护（Tamper Protection）下不可靠。所以脚本内部会调用系统自带的 `powershell.exe`，但都是**一行内联调用**，仓库里不存在 `.ps1` 文件：
+
+| 步骤 | 实现 | 依赖系统 `powershell.exe`？ |
+|---|---|---|
+| 构建、哈希、JSON、探针、发布 | `tools\*.mjs`（Node） | ❌ |
+| 快捷方式 AUMID 写入 | Electron 的 `shell.writeShortcutLink` | ❌（只用 `node.exe` 打印结果） |
+| **写入 Defender 排除项** | 内联 `powershell -NoProfile -Command "Add-MpPreference -ExclusionPath '…'"` | ✅ 无替代 |
+| **提权** | 内联 `powershell -NoProfile -Command "Start-Process -FilePath '<本脚本>' -Verb RunAs …"` | ✅（或等价的 VBS `ShellExecute … runas`） |
+
 ## 自带的 remote 插件
 
 发布的安装包内置 [`ds-harness-remote`](https://github.com/blue-soda/ds-harness-remote)（从其他设备远程接入本机 DSH），**随包安装、默认启用**，不需要用户自己 `dsh plugin add`。
 
-- **位置与声明**：tarball 放在 DSH 仓库的 `apps/desktop/vendor/`，构建时打进运行时，并在运行时 `@deepseek-ai/dsh` 的依赖清单里声明。少了这条声明，插件行的包名解析不到，插件页会显示「已启用 / 未运行」、UI 也不出现。
+- **位置与声明**：插件以 npm 包 [`@blue-soda/dsh-remote`](https://www.npmjs.com/package/@blue-soda/dsh-remote) 在**构建时**装进运行时（依赖 spec `^0.4.28`），并写进运行时里 `@deepseek-ai/dsh` 的依赖清单。最后这步不能省——profile 启动按**安装清单的依赖图**解析插件行的包名，缺声明就会解析失败：该行拿不到 fiber，插件页显示「已启用 / 未运行」，UI 也不出现。
+- **更新插件**：改 `apps/desktop/src/bundled-extras.ts` 里的 `BUNDLED_EXTRA_SPEC` 一个字符串即可，不需要 vendor tarball。
 - **默认配置**：新建 profile 时写入 `%USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml`，之后由用户自己维护：
 
   ```yaml
@@ -63,24 +117,24 @@
    - 用户级环境变量 `DSH_HOME=%USERPROFILE%\.dsh`
    - 用户级 PATH 包含 `%USERPROFILE%\bin`（`dsh` 命令进 TUI）
 
-## 在新电脑 / 新 checkout 上恢复
+## 在新电脑 / 新 checkout 上还原
 
-```powershell
-# 1) 仓库就位后，运行本包（默认 Python 用 DSH 自带的那份，含 Pillow）
-pwsh -File $env:USERPROFILE\dsh-restore-kit\apply-icons.ps1
+```bat
+:: 1) 只要安装包：直接看「一键构建」，build-release.cmd 会自己 clone 上游、
+::    重置到基线、打 dsh-desktop.patch 并产出 exe。
 
-# 2) 按提示构建（构建期间不要启动 Desktop，tsdown 会先清空 lib/*.js）
-cd C:\Workspace\deepseek-harness
-pnpm --filter @deepseek-ai/dsh-desktop run build
+:: 2) 要在本机开发环境上应用同一套改动：
+git clone https://github.com/deepseek-ai/deepseek-harness.git
+git -C deepseek-harness apply --binary %USERPROFILE%\dsh-desktop\dsh-desktop.patch
 
-# 3) 重建机器级部件：把 bin\ 里的脚本拷到 %USERPROFILE%\bin，
-#    设置用户级 DSH_HOME 与 PATH，再重建桌面快捷方式（见下方脚本片段）
+:: 3) 重建机器级部件：把 bin\ 里的脚本拷到 %USERPROFILE%\bin，
+::    设置用户级 DSH_HOME 与 PATH，再重建桌面快捷方式（见下方脚本片段）
 
-# 4) 冷启动优化（可选，会弹 UAC）
-pwsh -File $env:USERPROFILE\dsh-restore-kit\maintenance\defender-exclusions.ps1
+:: 4) 冷启动优化（可选，会弹 UAC）
+%USERPROFILE%\dsh-desktop\maintenance\defender-exclusions.cmd
 
-# 5) 任务栏身份（把 AUMID 写进快捷方式，配合已构建的 main.ts）
-pwsh -File $env:USERPROFILE\dsh-restore-kit\maintenance\set-taskbar-identity.ps1
+:: 5) 任务栏身份（把 AUMID 写进快捷方式，配合已构建的 main.ts）
+%USERPROFILE%\dsh-desktop\maintenance\set-taskbar-identity.cmd
 ```
 
 重建快捷方式：
@@ -121,16 +175,20 @@ pnpm --filter @deepseek-ai/dsh-desktop run build
 
 开发版 Desktop 冷启动要读取大量文件（checkout、`~/.dsh`、pnpm store），而 Windows Defender 的**实时扫描会为每个文件收费**——这是冷启动里最贵的一项。脚本给这三个目录加排除项，**整机的实时保护不受影响**：
 
-```powershell
-# 添加（会弹出 UAC，自助提权）
-pwsh -File $env:USERPROFILE\dsh-restore-kit\maintenance\defender-exclusions.ps1
+```bat
+:: 添加（会弹出 UAC，自助提权）
+maintenance\defender-exclusions.cmd
 
-# 撤销（同样提权）
-pwsh -File $env:USERPROFILE\dsh-restore-kit\maintenance\defender-exclusions.ps1 -Remove
+:: 撤销（同样提权）
+maintenance\defender-exclusions.cmd -Remove
+
+:: 默认排除 %USERPROFILE%\.dsh、%LOCALAPPDATA%\pnpm（存在时）与 %DSH_REPO% 指向的 checkout
+:: 也可以显式给出路径：maintenance\defender-exclusions.cmd D:\some\path
 ```
 
 - 只处理**当前存在**的路径；不存在的会列在结果的 `missing` 里。
-- 结果写入 `%TEMP%\defender-exclusions-result.json` 并打印（含生效列表与 `realTime` 状态）。
+- 结果写入 `%TEMP%\dsh-defender-exclusions.json` 并打印（含生效列表与 `realTime` 状态）。
+- 写入必须走 `Add-MpPreference`，所以脚本内部有一行内联 `powershell -NoProfile -Command`（见「为什么还有 powershell.exe」）。
 - 排除后这些目录不再被实时扫描——只在你信任其内容时保留。
 - 验证方式：重启 Windows 后给第一次启动计时，退出后再启动一次对比。
 - 实时保护本身保持**开启**，不需要也不建议关闭篡改防护。
@@ -144,8 +202,9 @@ pwsh -File $env:USERPROFILE\dsh-restore-kit\maintenance\defender-exclusions.ps1 
 | 应用侧 | `main.ts` 里的 `app.setAppUserModelId('com.deepseek.harness.dev')`（仅未打包的 Windows 启动；打包版保持 electron-builder 派生的 ID） |
 | 快捷方式侧 | 桌面**和开始菜单**快捷方式写入同一个 AUMID——Windows 固定时是去开始菜单找匹配项的 |
 
-```powershell
-pwsh -File $env:USERPROFILE\dsh-restore-kit\maintenance\set-taskbar-identity.ps1
+```bat
+maintenance\set-taskbar-identity.cmd
+:: 可选：-Repo <checkout> -Aumid <id> -Name <快捷方式名>
 ```
 
 完成后：

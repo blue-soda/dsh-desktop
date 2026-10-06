@@ -1,3 +1,7 @@
+# Build isolation checkout and release artifacts produced by build-release.ps1.
+build/
+dist/
+
 # Written by maintenance/set-taskbar-identity.ps1 on every run.
 maintenance/shortcut-writer/result.json
 
