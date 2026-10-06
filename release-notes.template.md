@@ -1,6 +1,6 @@
 # DeepSeek Harness Desktop 定制版 0.2.1-alpha.1（非官方构建）
 
-构建标签 `{{TAG}}`，由 `build-release.ps1` 于 `{{BUILD_DATE}}` 从上游 `{{BASE}}` 的源码 + 本仓库的
+构建标签 `{{TAG}}`，由 `build-release.cmd` 于 `{{BUILD_DATE}}` 从上游 `{{BASE}}` 的源码 + 本仓库的
 `dsh-desktop.patch` 构建。**非官方** Windows x64 桌面版。
 
 > 安装包文件名不区分小版本，请以 SHA256 为准。

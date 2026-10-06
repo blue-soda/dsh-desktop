@@ -77,6 +77,14 @@ function timestampTag() {
   return `r${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
 }
 
+/** Local wall-clock stamp for release notes; toISOString would report UTC. */
+function localStamp() {
+  const now = new Date()
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} `
+    + `${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
 /** Refuse any destructive path that is not inside its expected parent. */
 function guard(path, parent) {
   const full = resolve(path)
@@ -196,7 +204,7 @@ function writeNotes(tag, base, artifact) {
   let text = readFileSync(notesTemplate, utf8)
   const replacements = {
     '{{TAG}}': tag,
-    '{{BUILD_DATE}}': new Date().toISOString().slice(0, 16).replace('T', ' '),
+    '{{BUILD_DATE}}': localStamp(),
     '{{BASE}}': base,
     '{{EXE_NAME}}': artifact.name,
     '{{SIZE_MB}}': (statSync(artifact.installerPath).size / 1048576).toFixed(1),
