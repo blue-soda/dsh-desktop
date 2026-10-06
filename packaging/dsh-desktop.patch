@@ -1,59 +1,91 @@
-diff --git a/apps/desktop/resources/defender-exclusions.cmd b/apps/desktop/resources/defender-exclusions.cmd
+diff --git a/apps/desktop/resources/defender-exclusions.ps1 b/apps/desktop/resources/defender-exclusions.ps1
 new file mode 100644
-index 0000000000..2b9636552f
+index 0000000000..f6cfad404c
 --- /dev/null
-+++ b/apps/desktop/resources/defender-exclusions.cmd
-@@ -0,0 +1,50 @@
-+@echo off
-+rem Add or remove the Windows Security exclusions that keep this installation off the
-+rem real-time scan path. The application runs this file on its first packaged launch.
-+rem
-+rem Running without administrator rights relaunches this file elevated, which shows a UAC
-+rem prompt. Windows exposes the exclusion list only through Add-MpPreference, so each write
-+rem below is an inline call into the system PowerShell; this file holds the whole script.
-+setlocal EnableExtensions EnableDelayedExpansion
++++ b/apps/desktop/resources/defender-exclusions.ps1
+@@ -0,0 +1,82 @@
++<#
++.SYNOPSIS
++    Add or remove the Windows Defender exclusions that keep this installation off the real-time scan path.
 +
-+set "MODE=add"
-+if /i "%~1"=="remove" set "MODE=remove"
-+if /i "%~1"=="-Remove" set "MODE=remove"
++.DESCRIPTION
++    The application reads its bundled runtime — Node, Python and the Harness packages — on every cold
++    start. Windows Defender scans each file the first time it is read, which is the largest single cost
++    of the first launch after an install or a reboot.
 +
-+fltmc >nul 2>&1
-+if errorlevel 1 (
-+  echo Requesting administrator authorization for the Windows Security exclusions...
-+  powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '%MODE%' -Verb RunAs"
-+  if errorlevel 1 (
-+    > "%TEMP%\dsh-defender-exclusions.json" echo {"elevated": false, "reason": "authorization-declined"}
-+    exit /b 1
-+  )
-+  exit /b 0
-+)
++    This script excludes the installation directory next to its own resources directory, and the
++    Harness home that holds profiles and sessions. Real-time protection stays enabled; only these two
++    directories are excluded, and their content is no longer scanned, so keep them trusted.
 +
-+rem The script sits in <install>\resources, so its parent is the installation directory.
-+for %%I in ("%~dp0..") do set "INSTALL_ROOT=%%~fI"
-+set "HARNESS_HOME=%USERPROFILE%\.dsh"
-+set "APPLIED="
-+set "MISSING="
-+set "FAILED="
++    Without administrator rights the script relaunches itself elevated, which shows a UAC prompt.
++    The outcome is written as JSON to %TEMP%\dsh-defender-exclusions.json and printed.
 +
-+for %%P in ("%INSTALL_ROOT%" "%HARNESS_HOME%") do (
-+  if exist "%%~fP" (
-+    if /i "%MODE%"=="remove" (
-+      powershell -NoProfile -Command "Remove-MpPreference -ExclusionPath '%%~fP' -ErrorAction Stop" 1>nul 2>nul
-+    ) else (
-+      powershell -NoProfile -Command "Add-MpPreference -ExclusionPath '%%~fP' -ErrorAction Stop" 1>nul 2>nul
-+    )
-+    if errorlevel 1 ( set "FAILED=!FAILED! %%~fP" ) else ( set "APPLIED=!APPLIED! %%~fP" )
-+  ) else (
-+    set "MISSING=!MISSING! %%~fP"
-+  )
-+)
++.PARAMETER Remove
++    Remove the exclusions instead of adding them.
 +
-+echo Windows Security exclusion %MODE% finished.
-+if defined APPLIED echo   applied:!APPLIED!
-+if defined MISSING echo   missing:!MISSING!
-+if defined FAILED echo   failed:!FAILED!
-+if defined FAILED exit /b 1
-+exit /b 0
++.EXAMPLE
++    powershell -NoProfile -ExecutionPolicy Bypass -File defender-exclusions.ps1
++    Add both exclusions, requesting elevation when the caller is not an administrator.
++#>
++[CmdletBinding()]
++param([switch]$Remove)
++
++$ErrorActionPreference = 'Stop'
++
++$installRoot = Split-Path -Parent $PSScriptRoot
++$harnessHome = Join-Path $env:USERPROFILE '.dsh'
++$resultPath = Join-Path $env:TEMP 'dsh-defender-exclusions.json'
++
++function Write-Result {
++    param([hashtable]$Value)
++    $json = $Value | ConvertTo-Json -Depth 4
++    # UTF-8 without a byte-order mark: JSON.parse over the file must not see one.
++    [IO.File]::WriteAllText($resultPath, $json, (New-Object Text.UTF8Encoding $false))
++    Write-Output $json
++}
++
++$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
++$isAdministrator = ([Security.Principal.WindowsPrincipal]$identity).IsInRole(
++    [Security.Principal.WindowsBuiltInRole]::Administrator)
++
++if (-not $isAdministrator) {
++    $forward = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
++    if ($Remove) { $forward += '-Remove' }
++    try {
++        Start-Process -FilePath (Get-Process -Id $PID).Path -Verb RunAs -WindowStyle Hidden -ArgumentList $forward -Wait
++        exit 0
++    } catch {
++        Write-Result @{ elevated = $false; action = 'none'; reason = 'authorization-declined'
++            message = $_.Exception.Message }
++        exit 1
++    }
++}
++
++$applied = @()
++$missing = @()
++$failed = @()
++foreach ($target in @($installRoot, $harnessHome)) {
++    if (-not (Test-Path -LiteralPath $target)) { $missing += $target; continue }
++    try {
++        if ($Remove) { Remove-MpPreference -ExclusionPath $target -ErrorAction Stop }
++        else { Add-MpPreference -ExclusionPath $target -ErrorAction Stop }
++        $applied += $target
++    } catch {
++        $failed += @{ path = $target; message = $_.Exception.Message }
++    }
++}
++
++$result = @{
++    elevated = $true
++    action = $(if ($Remove) { 'remove' } else { 'add' })
++    applied = $applied
++    missing = $missing
++    failed = $failed
++    excluded = @((Get-MpPreference).ExclusionPath)
++    realTime = (Get-MpComputerStatus).RealTimeProtectionEnabled
++}
++Write-Result $result
++exit $(if ($failed.Count -eq 0) { 0 } else { 1 })
 diff --git a/apps/desktop/resources/icon-windows.ico b/apps/desktop/resources/icon-windows.ico
 new file mode 100644
 index 0000000000000000000000000000000000000000..e520d7a5e6e616dafb8f63643efaae19d846a3fa
@@ -25636,7 +25668,7 @@ zt~m547Ue24eM`I~XLiIS%CJ@1Zs32rem2xV?g_Qu_J76_I%cJ?%)o1XQ_226dF}rJ
 DgHpq{
 
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index 1fb787803c..6faf6d9618 100644
+index 1fb787803c..c209882267 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -144,8 +144,11 @@ export function createElectronBuilderConfig(
@@ -25648,7 +25680,7 @@ index 1fb787803c..6faf6d9618 100644
 +      // Windows-only resources: tray bitmaps, and the exclusion script the first launch offers to run.
 +      ...(packagesWindows ? [
 +        { from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' },
-+        { from: fileURLToPath(new URL('../resources/defender-exclusions.cmd', import.meta.url)), to: 'defender-exclusions.cmd' },
++        { from: fileURLToPath(new URL('../resources/defender-exclusions.ps1', import.meta.url)), to: 'defender-exclusions.ps1' },
 +      ] : []),
      ],
      mac: {
@@ -25781,10 +25813,10 @@ index 0000000000..20580068cf
 +}
 diff --git a/apps/desktop/src/defender-exclusion.ts b/apps/desktop/src/defender-exclusion.ts
 new file mode 100644
-index 0000000000..c950e4f477
+index 0000000000..fd189f5c12
 --- /dev/null
 +++ b/apps/desktop/src/defender-exclusion.ts
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,90 @@
 +/** One-time offer to exclude this installation from Windows Security real-time scanning. */
 +
 +import { spawn } from 'node:child_process'
@@ -25797,7 +25829,7 @@ index 0000000000..c950e4f477
 +const OFFER_MARKER = 'defender-exclusion-settled'
 +
 +/** Shipped script name, matching the Windows `extraResources` entry. */
-+const SCRIPT_FILE = 'defender-exclusions.cmd'
++const SCRIPT_FILE = 'defender-exclusions.ps1'
 +
 +/** Result file the script writes under the system temporary directory. */
 +const RESULT_FILE = 'dsh-defender-exclusions.json'
@@ -25827,8 +25859,10 @@ index 0000000000..c950e4f477
 +function runExclusionScript(scriptPath: string): Promise<boolean> {
 +  return new Promise((settle) => {
 +    const systemRoot = process.env.SystemRoot ?? 'C:\\Windows'
-+    const shell = join(systemRoot, 'System32', 'cmd.exe')
-+    const child = spawn(shell, ['/c', scriptPath], { stdio: 'ignore', windowsHide: true })
++    const shell = join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
++    const child = spawn(shell, [
++      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', scriptPath,
++    ], { stdio: 'ignore', windowsHide: true })
 +    // A spawn failure and a non-zero exit both leave the exclusions unapplied.
 +    child.once('error', () => { settle(false) })
 +    child.once('close', (code) => { settle(code === 0) })
@@ -25874,7 +25908,7 @@ index 0000000000..c950e4f477
 +  })
 +}
 diff --git a/apps/desktop/src/locale.ts b/apps/desktop/src/locale.ts
-index 5d9d4607c7..ab201c6d38 100644
+index 5d9d4607c7..f744de94be 100644
 --- a/apps/desktop/src/locale.ts
 +++ b/apps/desktop/src/locale.ts
 @@ -166,6 +166,13 @@ export const en = {
@@ -25886,7 +25920,7 @@ index 5d9d4607c7..ab201c6d38 100644
 +  defenderDetail: 'DeepSeek Harness reads its bundled runtime on every cold start. Windows Security scans each file the first time it is read, which makes the first launch after an install or a restart noticeably slower.\n\nAdding the installation directory and your Harness home to the exclusion list skips those scans. Real-time protection stays on for everything else, but excluded folders are no longer scanned, so keep them trusted.\n\nWindows asks for administrator authorization next.',
 +  defenderAdd: 'Authorize and exclude',
 +  defenderLater: 'Not now',
-+  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.cmd from the application folder later.',
++  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.ps1 from the application folder later.',
 +  defenderFailed: 'The exclusion could not be added, so startup may stay slower.',
  } as const
  
@@ -25900,7 +25934,7 @@ index 5d9d4607c7..ab201c6d38 100644
 +  defenderDetail: 'DeepSeek Harness 每次冷启动都要读取随包发布的运行时。Windows 安全中心会扫描每个首次读取的文件，这让安装后或重启后的第一次启动明显变慢。\n\n把安装目录和你的 Harness 主目录加入排除列表即可跳过这些扫描。其余内容的实时保护保持开启，但被排除的文件夹不再被扫描，请确认你信任其中的内容。\n\n接下来 Windows 会请求管理员授权。',
 +  defenderAdd: '授权并添加',
 +  defenderLater: '暂不添加',
-+  defenderDeclined: '未添加排除项，启动速度可能仍然较慢。之后可以在应用目录中运行 defender-exclusions.cmd。',
++  defenderDeclined: '未添加排除项，启动速度可能仍然较慢。之后可以在应用目录中运行 defender-exclusions.ps1。',
 +  defenderFailed: '排除项添加失败，启动速度可能仍然较慢。',
  } as const satisfies DesktopMessages
  
