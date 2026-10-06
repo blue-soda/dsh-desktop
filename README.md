@@ -64,7 +64,9 @@ build-release.cmd -Clean                   :: 只清理 build\、dist\ 与本工
 | `download:electron ... fetch failed` | 访问 GitHub 下载 CDN 失败。脚本已固定设置 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`；仍然失败时多为网络抖动，稍后重跑即可 |
 | `pnpm install` 卡住或失败 | registry 慢/被挡。在 `.env.windows.template` 里放开 `DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com`，重跑 |
 | 磁盘不足 | 运行时 + Electron + 产物需要数 GB；脚本在剩余空间 < 20 GB 时告警 |
-| `git apply` 失败 | `dsh-desktop.patch` 与 `-Base` 不匹配。确认 `-Base` 是导出补丁时的那个提交 |
+| `git apply` 失败 | 补丁与基线不匹配，或上一轮产物残留。脚本会**从补丁本身推导路径**再重置：tracked 文件还原到基线，补丁新增的 untracked 文件用 `clean -fd` 删除（**不用** `-x`，所以 `node_modules` 不会被删、不必重装），正常无需手工干预 |
+| `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` | pnpm 想清空 `node_modules` 但在无终端时会中止询问。脚本已设 `confirmModulesPurge=false`，若仍出现可显式加 `--config.confirmModulesPurge=false` |
+| `EPERM: operation not permitted, unlink '…\win-unpacked\…dll'` | 有实例正从 `build\dsh\…\win-unpacked` 运行，锁住了 electron-builder 要重写的文件。**关掉那个应用窗口再重跑**；脚本现在会在打包前就检测并报出（不会替你杀进程），而不是跑十几分钟后才失败 |
 
 **`-Verify` 的三项断言**：
 
