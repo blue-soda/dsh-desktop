@@ -2,14 +2,17 @@
 
 基于 deepseek-harness `0.2.1-alpha.1` 构建的**非官方** Windows x64 桌面版，包含本仓库记录的那套定制。
 
+> 本页描述**当前**构建。安装包文件名不区分小版本，以 SHA256 为准。
+
 ## 下载与安装
 
 | | |
 |---|---|
 | 文件 | `deepseek-harness-0.2.1-alpha.1-win-x64-unsigned.exe`（287.5 MB） |
-| SHA256 | `CA0B895E1C224655771E9292398BD900423E37669207FFD7EC133FD435CBBBF8` |
-| blockmap SHA256 | `45E26A0B5EF1A796266629D60B6CE7D4F8C1982C1B687C5775169B43DE76CEBB` |
+| SHA256 | `5931BB6EF2AD6733CE7A95371E37431662D89881C4F72A125B72E6A97A46BCAD` |
+| blockmap SHA256 | `BE2C32BDD8CDFBA79DCDF2BECF9526E3F47E1320268F439F4CB608EA477502B2` |
 | 安装范围 | **仅当前用户**，安装过程不需要管理员权限 |
+| 内置插件版本 | `ds-harness-remote` **0.4.28** |
 
 ## 首次运行会发生什么
 
