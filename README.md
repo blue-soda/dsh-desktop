@@ -32,29 +32,21 @@
 
 ## 自带的 remote 插件
 
-发布的安装包内置 [`ds-harness-remote`](https://github.com/blue-soda/ds-harness-remote)，用于从其他设备远程接入本机的 DSH。它**随包安装、默认启用**，用户不需要自己 `dsh plugin add`。
+发布的安装包内置 [`ds-harness-remote`](https://github.com/blue-soda/ds-harness-remote)（从其他设备远程接入本机 DSH），**随包安装、默认启用**，不需要用户自己 `dsh plugin add`。
 
-**它是怎么进去的**：插件 tarball 放在 DSH 仓库的 `apps/desktop/vendor/`，构建时打进运行时，并写进运行时里 `@deepseek-ai/dsh` 的依赖清单。最后一步不能省——profile 启动时按**安装清单的依赖图**解析插件行的包名，清单没声明就会解析失败：该行拿不到 fiber，插件页显示「已启用 / 未运行」，UI 也不会出现。
+- **位置与声明**：tarball 放在 DSH 仓库的 `apps/desktop/vendor/`，构建时打进运行时，并在运行时 `@deepseek-ai/dsh` 的依赖清单里声明。少了这条声明，插件行的包名解析不到，插件页会显示「已启用 / 未运行」、UI 也不出现。
+- **默认配置**：新建 profile 时写入 `%USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml`，之后由用户自己维护：
 
-**默认配置**：新建 profile 时会在 `%USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml` 写入下面这段；此后由用户自己维护，升级不会覆盖已有条目。
-
-```yaml
-- id: ds-harness-remote
-  config:
-    enabled: true
-    role: both                  # host 与 client 同时启用
-    serverUrl: https://sakakibara.ink:8443
-    codex:
+  ```yaml
+  - id: ds-harness-remote
+    config:
       enabled: true
-```
+      role: both
+      serverUrl: https://sakakibara.ink:8443
+  ```
 
-| 项 | 说明 |
-|---|---|
-| `role` | `host`（本机作为被接入端）/ `client`（本机作为接入端）/ `both`。发行版默认 `both`，启动时会分别建立两套设备身份 |
-| `serverUrl` | 连接的中继服务器。发行版固定指向 `https://sakakibara.ink:8443` |
-| **首次连接要授权** | 设备凭证**不随包分发**（否则所有安装会共用同一个设备身份），用户需在 Remote 界面完成一次授权 |
-| **隐私** | 启用后插件会与该服务器建立连接，并在 `%USERPROFILE%\.dsh\remote\` 下生成设备密钥与服务器凭证 |
-| **关闭方式** | 把上面 `enabled` 改成 `false`，或删掉整段；改完重启应用生效 |
+- **改配置 / 关闭**：编辑上面那段即可——`role` 可取 `host` / `client` / `both`，改成 `enabled: false` 或删掉整段即关闭；重启应用生效。
+- **首次连接需授权一次**：设备凭证不随包分发（否则所有安装会共用同一个设备身份）。连接与设备密钥位于 `%USERPROFILE%\.dsh\remote\`。
 
 ## 图标定制由三部分组成
 
