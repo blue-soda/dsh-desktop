@@ -10,41 +10,54 @@
 4. **任务栏身份** —— 让固定到任务栏的项目显示为 DSH，而不是 Electron
 5. **自带插件** —— 安装包内置 `ds-harness-remote` 并默认启用（见下方「自带的 remote 插件」）
 
-本包是自包含的：换电脑或重新 clone 仓库后，可以用 `dsh-desktop.patch` + 一条命令重新产出安装包（见「一键构建」），也可以照下面各节手工复原。
+本包是自包含的：换电脑或重新 clone 仓库后，可以用 `packaging/dsh-desktop.patch` + 一条命令重新产出安装包（见「一键构建」），也可以照下面各节手工复原。
 
-## 包含什么
+## 仓库结构
+
+```
+dsh-desktop/
+  README.md
+  build-release.cmd      ← 唯一入口：.\build-release.cmd -Tag r5 -Verify
+  packaging/             ← dsh-desktop.patch、.env.windows.template、release-notes.template.md
+  assets/                ← 图标素材与生成脚本、启动器副本、main.ts.patch
+  maintenance/           ← Defender 排除项、任务栏身份、快捷方式写入器
+  tools/                 ← 构建与探针的 Node 实现
+  docs/                  ← 历史发行说明
+  build/  dist/          ← 构建目录与产物（gitignored）
+```
 
 | 文件 | 作用 |
 |---|---|
-| `source.png` | 源美术图（透明背景 PNG，越大越好） |
-| `make-icons.py` | 生成脚本：居中补方 → 按模式裁剪（默认 `--mode head` 头部特写，`--mode full` 整身）→ 收紧到内容边界 + 2% 余量 |
-| `main.ts.patch` | `apps/desktop/src/main.ts` 的**两处**源码改动：窗口图标 + 未打包启动的 AppUserModelID |
-| `dsh-desktop.patch` | **完整**的 DSH 侧改动（图标资源与源码、提权对话框、内置插件机制）。`build-release.cmd` 把它打到上游基线上，是"新电脑一键重建"的唯一真源 |
 | `build-release.cmd` + `tools/*.mjs` | **一键构建**：隔离 clone → 打补丁 → 写打包环境 → 装依赖 → 出 exe → 校验和与发行说明（可加 `-Verify` / `-Upload`） |
-| `.env.windows.template` | 打包环境模板（appId、更新环境、策略源站），构建时写入隔离 checkout |
-| `release-notes.template.md` | 发行说明模板，构建时自动填入 SHA256、体积与实际解析到的插件版本 |
-| `apply-icons.ps1` | 一键：生成资源 + 检查/应用 patch + 提示构建（没有 Python 时自动退回预生成副本）。**这是本仓库保留的唯一 `.ps1`**，只用于重新生成图标，不参与构建 |
-| `generated/` | 三个仓库资源的**预生成副本**，仅在无法运行 `make-icons.py` 时使用（无 Python/Pillow） |
-| `bin/` | 机器级启动器副本（`dsh.cmd` 进 TUI、`dsh-desktop.cmd` 快速启动、`dsh-desktop-full.cmd` 完整准备、`dsh-desktop.vbs` 无窗口包装） |
-| `bin/dsh-desktop.ico` | **桌面快捷方式图标**。它不在仓库里，`make-icons.py` 也只在 `%USERPROFILE%\bin` 已存在时才写；放进包里可去掉"先拷脚本再生成"的顺序依赖 |
+| `packaging/dsh-desktop.patch` | **完整**的 DSH 侧改动（图标资源与源码、提权对话框、内置插件机制）。构建时打到上游基线上，是"新电脑一键重建"的唯一真源 |
+| `packaging/.env.windows.template` | 打包环境模板（appId、更新环境、策略源站），构建时写入隔离 checkout |
+| `packaging/release-notes.template.md` | 发行说明模板，构建时自动填入 SHA256、体积与实际解析到的插件版本 |
+| `assets/source.png` | 源美术图（透明背景 PNG，越大越好） |
+| `assets/make-icons.py` | 图标生成：居中补方 → 按模式裁剪（默认 `--mode head` 头部特写，`--mode full` 整身）→ 收紧到内容边界 + 2% 余量 |
+| `assets/apply-icons.ps1` | 一键：生成资源 + 检查/应用 patch + 提示构建（没有 Python 时退回预生成副本）。**本仓库保留的唯一 `.ps1`**，只用于重新生成图标，不参与构建 |
+| `assets/main.ts.patch` | `apps/desktop/src/main.ts` 的**两处**源码改动：窗口图标 + 未打包启动的 AppUserModelID（完整改动已并入 `packaging/dsh-desktop.patch`） |
+| `assets/generated/` | 三个仓库资源的**预生成副本**，仅在无法运行 `make-icons.py` 时使用（无 Python/Pillow） |
+| `assets/bin/` | 机器级启动器副本（`dsh.cmd` 进 TUI、`dsh-desktop.cmd` 快速启动、`dsh-desktop-full.cmd` 完整准备、`dsh-desktop.vbs` 无窗口包装） |
+| `assets/bin/dsh-desktop.ico` | **桌面快捷方式图标**。它不在仓库里，`make-icons.py` 也只在 `%USERPROFILE%\bin` 已存在时才写；放进包里可去掉"先拷脚本再生成"的顺序依赖 |
 | `maintenance/defender-exclusions.cmd` | 添加/移除 Windows Defender 排除项，消除冷启动时的实时扫描成本。自助提权，`-Remove` 可撤销；**内部用一行内联 `powershell -NoProfile -Command "Add-MpPreference …"`**（见下「为什么还有 powershell.exe」） |
 | `maintenance/set-taskbar-identity.cmd` | 把同一个 AUMID 写进桌面与开始菜单快捷方式，修复"固定到任务栏显示 Electron" |
 | `maintenance/shortcut-writer/` | 上面脚本调用的极小 Electron 应用（用 `shell.writeShortcutLink` 写快捷方式并输出 `result.json`） |
 
-> 图标都能由 `source.png` + `make-icons.py` 重新生成（输出确定），所以 `generated/` 与 `bin/dsh-desktop.ico`
+> 图标都能由 `assets/source.png` + `assets/make-icons.py` 重新生成（输出确定），所以 `assets/generated/` 与 `assets/bin/dsh-desktop.ico`
 > 属于**冗余保险**而非必需品。改动余量或裁剪方式后请重新生成，并同步覆盖这两处副本，避免与脚本输出不一致。
 
 ## 一键构建（build-release.cmd）
 
 从零产出安装包。**构建完全隔离在本仓库的 `build\` 目录内**（clone 上游、装依赖、打包、产物都在那里），不会改动你其它的 checkout。
 
-```bat
-build-release.cmd -Tag r4 -Verify          :: 构建 + 探针
-build-release.cmd -Tag r4 -Verify -Upload  :: 再加发布到 Release
-build-release.cmd -Clean                   :: 只清理 build\、dist\ 与本工具自己的临时文件
+```powershell
+# PowerShell 需要 .\ 前缀（默认不从当前目录加载命令）；在 cmd.exe 里可以直接写 build-release.cmd
+.\build-release.cmd -Tag r5 -Verify           # 构建 + 探针
+.\build-release.cmd -Tag r5 -Verify -Upload   # 再加发布到 Release
+.\build-release.cmd -Clean                    # 只清理 build\、dist\ 与本工具自己的临时文件
 ```
 
-流程：预检（git/node/pnpm/gh）→ 在 `build\dsh` clone 上游（`--filter=blob:none`）→ `checkout --force <Base>` + `clean` + `git apply dsh-desktop.patch`（**每次从干净基线开始，可重复运行**）→ 写 `apps\desktop\.env.windows` → `pnpm install` → `package:win:x64:unsigned` → 把 exe 与 `.blockmap` 复制到 `dist\`，生成 `SHA256SUMS.txt` 与发行说明。
+流程：预检（git/node/pnpm/gh）→ 在 `build\dsh` clone 上游（`--filter=blob:none`）→ `checkout --force <Base>` + 按补丁路径重置 + `git apply packaging\dsh-desktop.patch`（**每次从干净基线开始，可重复运行**）→ 写 `apps\desktop\.env.windows` → `pnpm install` → `package:win:x64:unsigned` → 把 exe 与 `.blockmap` 复制到 `dist\`，生成 `SHA256SUMS.txt` 与发行说明。
 
 | 选项 | 说明 |
 |---|---|
@@ -62,7 +75,7 @@ build-release.cmd -Clean                   :: 只清理 build\、dist\ 与本工
 | 现象 | 原因与处理 |
 |---|---|
 | `download:electron ... fetch failed` | 访问 GitHub 下载 CDN 失败。脚本已固定设置 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`；仍然失败时多为网络抖动，稍后重跑即可 |
-| `pnpm install` 卡住或失败 | registry 慢/被挡。在 `.env.windows.template` 里放开 `DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com`，重跑 |
+| `pnpm install` 卡住或失败 | registry 慢/被挡。在 `packaging\.env.windows.template` 里放开 `DSH_DESKTOP_NPM_REGISTRY=https://registry.npmmirror.com`，重跑 |
 | 磁盘不足 | 运行时 + Electron + 产物需要数 GB；脚本在剩余空间 < 20 GB 时告警 |
 | `git apply` 失败 | 补丁与基线不匹配，或上一轮产物残留。脚本会**从补丁本身推导路径**再重置：tracked 文件还原到基线，补丁新增的 untracked 文件用 `clean -fd` 删除（**不用** `-x`，所以 `node_modules` 不会被删、不必重装），正常无需手工干预 |
 | `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` | pnpm 想清空 `node_modules` 但在无终端时会中止询问。脚本已设 `confirmModulesPurge=false`，若仍出现可显式加 `--config.confirmModulesPurge=false` |
@@ -121,22 +134,23 @@ Windows 上**添加 Defender 排除项没有非 PowerShell 的受支持接口**�
 
 ## 在新电脑 / 新 checkout 上还原
 
-```bat
-:: 1) 只要安装包：直接看「一键构建」，build-release.cmd 会自己 clone 上游、
-::    重置到基线、打 dsh-desktop.patch 并产出 exe。
+```powershell
+# 在仓库根目录执行；PowerShell 里脚本一律要 .\ 前缀
 
-:: 2) 要在本机开发环境上应用同一套改动：
+# 1) 只要安装包：直接看「一键构建」——.\build-release.cmd 会自己 clone 上游、重置到基线、打补丁并产出 exe。
+
+# 2) 要在本机开发环境上应用同一套改动：
 git clone https://github.com/deepseek-ai/deepseek-harness.git
-git -C deepseek-harness apply --binary %USERPROFILE%\dsh-desktop\dsh-desktop.patch
+git -C deepseek-harness apply --binary "$env:USERPROFILE\dsh-desktop\packaging\dsh-desktop.patch"
 
-:: 3) 重建机器级部件：把 bin\ 里的脚本拷到 %USERPROFILE%\bin，
-::    设置用户级 DSH_HOME 与 PATH，再重建桌面快捷方式（见下方脚本片段）
+# 3) 重建机器级部件：把 assets\bin\ 里的脚本拷到 %USERPROFILE%\bin，
+#    设置用户级 DSH_HOME 与 PATH，再重建桌面快捷方式（见下方脚本片段）
 
-:: 4) 冷启动优化（可选，会弹 UAC）
-%USERPROFILE%\dsh-desktop\maintenance\defender-exclusions.cmd
+# 4) 冷启动优化（可选，会弹 UAC）
+.\maintenance\defender-exclusions.cmd
 
-:: 5) 任务栏身份（把 AUMID 写进快捷方式，配合已构建的 main.ts）
-%USERPROFILE%\dsh-desktop\maintenance\set-taskbar-identity.cmd
+# 5) 任务栏身份（把 AUMID 写进快捷方式，配合已构建的 main.ts）
+.\maintenance\set-taskbar-identity.cmd
 ```
 
 重建快捷方式：
@@ -166,26 +180,26 @@ pnpm --filter @deepseek-ai/dsh-desktop run build
 
 - **构图**：`--mode head`（当前默认：头部特写，16 px 下仍能看出脸）或 `--mode full`（整身）。
   ```powershell
-  python make-icons.py --mode full    # 换回整身；改完记得重启应用
+  python assets\make-icons.py --mode full    # 换回整身；改完记得重启应用
   ```
 - **更大/更小**：`--margin`（0 = 图形贴满整块画布；当前 0.02）。
 - **头部窗口的位置与大小**：改 `make-icons.py` 顶部的 `HEAD_EDGE`（默认 0.58）与 `HEAD_CENTRE`（默认 0.50, 0.36）。
 - **注意**：不要运行 `pnpm run render:tray-icon`，它会从仓库自带的 `icon-windows.svg` 重新生成**官方**托盘图标，覆盖你的定制。
-- 改完任何参数后，记得把新的三个资源与 `bin\dsh-desktop.ico` 重新拷进本包的 `generated\` 和 `bin\`，否则包内副本会与脚本输出不一致。
+- 改完任何参数后，记得把新的三个资源与 `assets\bin\dsh-desktop.ico` 重新拷进本包的 `assets\generated\` 和 `assets\bin\`，否则包内副本会与脚本输出不一致。
 
 ## 冷启动优化：Defender 排除项
 
 开发版 Desktop 冷启动要读取大量文件（checkout、`~/.dsh`、pnpm store），而 Windows Defender 的**实时扫描会为每个文件收费**——这是冷启动里最贵的一项。脚本给这三个目录加排除项，**整机的实时保护不受影响**：
 
-```bat
-:: 添加（会弹出 UAC，自助提权）
-maintenance\defender-exclusions.cmd
+```powershell
+# 添加（会弹出 UAC，自助提权）
+.\maintenance\defender-exclusions.cmd
 
-:: 撤销（同样提权）
-maintenance\defender-exclusions.cmd -Remove
+# 撤销（同样提权）
+.\maintenance\defender-exclusions.cmd -Remove
 
-:: 默认排除 %USERPROFILE%\.dsh、%LOCALAPPDATA%\pnpm（存在时）与 %DSH_REPO% 指向的 checkout
-:: 也可以显式给出路径：maintenance\defender-exclusions.cmd D:\some\path
+# 默认排除 %USERPROFILE%\.dsh、%LOCALAPPDATA%\pnpm（存在时）与 %DSH_REPO% 指向的 checkout
+# 也可以显式给出路径：.\maintenance\defender-exclusions.cmd D:\some\path
 ```
 
 - 只处理**当前存在**的路径；不存在的会列在结果的 `missing` 里。
@@ -204,9 +218,9 @@ maintenance\defender-exclusions.cmd -Remove
 | 应用侧 | `main.ts` 里的 `app.setAppUserModelId('com.deepseek.harness.dev')`（仅未打包的 Windows 启动；打包版保持 electron-builder 派生的 ID） |
 | 快捷方式侧 | 桌面**和开始菜单**快捷方式写入同一个 AUMID——Windows 固定时是去开始菜单找匹配项的 |
 
-```bat
-maintenance\set-taskbar-identity.cmd
-:: 可选：-Repo <checkout> -Aumid <id> -Name <快捷方式名>
+```powershell
+.\maintenance\set-taskbar-identity.cmd
+# 可选：-Repo <checkout> -Aumid <id> -Name <快捷方式名>
 ```
 
 完成后：

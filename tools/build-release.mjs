@@ -30,9 +30,9 @@ const kitRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const buildRoot = join(kitRoot, 'build')
 const checkout = join(buildRoot, 'dsh')
 const distDir = join(kitRoot, 'dist')
-const patchPath = join(kitRoot, 'dsh-desktop.patch')
-const envTemplate = join(kitRoot, '.env.windows.template')
-const notesTemplate = join(kitRoot, 'release-notes.template.md')
+const patchPath = join(kitRoot, 'packaging', 'dsh-desktop.patch')
+const envTemplate = join(kitRoot, 'packaging', '.env.windows.template')
+const notesTemplate = join(kitRoot, 'packaging', 'release-notes.template.md')
 const releaseRepo = 'blue-soda/dsh-desktop'
 const electronMirror = 'https://npmmirror.com/mirrors/electron/'
 const pluginPackage = '@blue-soda/dsh-remote'
@@ -234,7 +234,7 @@ function build() {
     run('pnpm', ['install', '--config.confirmModulesPurge=false'], { cwd: checkout, env: environment })
   } catch (error) {
     throw new Error(`pnpm install failed. A slow or blocked registry is the usual cause: uncomment `
-      + `DSH_DESKTOP_NPM_REGISTRY in .env.windows.template (for example https://registry.npmmirror.com) and re-run. ${error.message}`)
+      + `DSH_DESKTOP_NPM_REGISTRY in packaging/.env.windows.template (for example https://registry.npmmirror.com) and re-run. ${error.message}`)
   }
   try {
     run('pnpm', ['--filter', desktopFilter, 'run', 'package:win:x64:unsigned'], { cwd: checkout, env: environment })

@@ -1,9 +1,9 @@
-# Build isolation checkout and release artifacts produced by build-release.ps1.
+# Build isolation checkout and release artifacts produced by build-release.cmd.
 build/
 dist/
 
-# Written by maintenance/set-taskbar-identity.ps1 on every run.
+# Written by maintenance/set-taskbar-identity.cmd on every run.
 maintenance/shortcut-writer/result.json
 
-# Python bytecode produced by make-icons.py.
+# Python bytecode produced by assets/make-icons.py.
 __pycache__/
