@@ -9,10 +9,10 @@
 | | |
 |---|---|
 | 文件 | `deepseek-harness-0.2.1-alpha.1-win-x64-unsigned.exe`（287.5 MB） |
-| SHA256 | `5931BB6EF2AD6733CE7A95371E37431662D89881C4F72A125B72E6A97A46BCAD` |
-| blockmap SHA256 | `BE2C32BDD8CDFBA79DCDF2BECF9526E3F47E1320268F439F4CB608EA477502B2` |
+| SHA256 | `BC0022D0850DE2CE8015E3D8CE270E65AC276D1C8C3002946B7360E3744E1C8D` |
+| blockmap SHA256 | `A4FF7C14AFDD83C13416B5C75B9E3A54AA22177BD723BE61F0783EF57BE65F6F` |
 | 安装范围 | **仅当前用户**，安装过程不需要管理员权限 |
-| 内置插件版本 | `ds-harness-remote` **0.4.28** |
+| 内置插件 | `ds-harness-remote` **0.4.28** @ 提交 `933b292`（版本号会在多次修订间重复，以此 SHA 为准） |
 
 ## 首次运行会发生什么
 
