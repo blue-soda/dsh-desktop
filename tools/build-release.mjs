@@ -17,7 +17,8 @@
  */
 import { createHash } from 'node:crypto'
 import {
-  copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync,
+  closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, statSync,
+  writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve, sep } from 'node:path'
@@ -119,6 +120,53 @@ function preflight(tag) {
   info(`patch: ${patchPath} (${statSync(patchPath).size} bytes)`)
 }
 
+/**
+ * Paths a patch touches, read from the patch itself.
+ * Listing directories by hand misses every file a patch adds elsewhere, and one leftover untracked
+ * file then makes `git apply` fail with "already exists in working directory".
+ * @param file - Patch file path.
+ * @returns Sorted repository-relative paths the patch reads or writes.
+ */
+function patchPaths(file) {
+  const result = spawnTool('git', ['apply', '--numstat', file], { stdio: 'pipe', encoding: 'utf8' })
+  if (result.status !== 0) throw new Error(`git apply --numstat failed: ${String(result.stderr).trim()}`)
+  const paths = new Set()
+  for (const line of String(result.stdout).split('\n')) {
+    const columns = line.split('\t')
+    if (columns.length < 3) continue
+    for (const column of columns.slice(2)) {
+      // Rename and copy records carry two sides; a plain record carries one.
+      for (const part of column.split(' => ')) {
+        const path = part.replace(/^"|"$/gu, '').trim()
+        if (path !== '' && path !== '/dev/null') paths.add(path)
+      }
+    }
+  }
+  return [...paths].sort()
+}
+
+/**
+ * Restore exactly the paths a patch touches, so a previous run cannot block the next one.
+ * Tracked files return to the base revision; untracked files the patch adds are removed. Ignored
+ * content such as node_modules stays, so a re-run never reinstalls dependencies.
+ * @param base - Base commit the patch applies to.
+ * @param file - Patch file path.
+ * @returns Paths that were reset.
+ */
+function resetToBase(base, file) {
+  const paths = patchPaths(file)
+  if (paths.length === 0) throw new Error(`no paths found in ${file}`)
+  info(`patch touches ${paths.length} path(s)`)
+  const tracked = paths.filter(path =>
+    spawnTool('git', ['-C', checkout, 'ls-files', '--error-unmatch', '--', path], { stdio: 'ignore' }).status === 0)
+  if (tracked.length > 0) run('git', ['-C', checkout, 'checkout', '--force', base, '--', ...tracked])
+  const directories = [...new Set(paths.map(path => dirname(path)))]
+    .filter(directory => directory !== '.' && directory !== '')
+    .sort()
+  if (directories.length > 0) run('git', ['-C', checkout, 'clean', '-fd', '--', ...directories])
+  return paths
+}
+
 function resolveCheckout(source, base) {
   step(`Isolated checkout at ${checkout}`)
   guard(checkout, buildRoot)
@@ -138,7 +186,7 @@ function resolveCheckout(source, base) {
     info(`warning: could not fetch origin (${error.message}); continuing with the history that already has ${base}`)
   }
   run('git', ['-C', checkout, 'checkout', '--force', base])
-  run('git', ['-C', checkout, 'clean', '-fdx', 'apps/desktop/resources', 'apps/desktop/src'])
+  resetToBase(base, patchPath)
   run('git', ['-C', checkout, 'apply', '--binary', '--check', patchPath])
   run('git', ['-C', checkout, 'apply', '--binary', patchPath])
   info(`source state: ${capture('git', ['-C', checkout, 'rev-parse', '--short', 'HEAD'])} + dsh-desktop.patch`)
@@ -152,12 +200,38 @@ function writeEnvFile() {
   for (const line of readFileSync(target, utf8).split('\n')) if (/^[A-Z]/.test(line)) info(`  ${line.trim()}`)
 }
 
+/**
+ * Refuse to start packaging while an instance of the packaged application still runs from the build
+ * tree: that instance locks the files electron-builder rewrites, and the failure surfaces as a bare
+ * EPERM long after the build began. Opening its executable for writing is the lock test, and the
+ * script never terminates another process.
+ */
+function assertPackagingTargetUnlocked() {
+  const target = join(checkout, 'apps', 'desktop', '.desktop-build', 'targets', 'win-x64',
+    'unsigned-artifacts', 'win-unpacked', 'DeepSeek Harness.exe')
+  if (!existsSync(target)) return
+  try {
+    closeSync(openSync(target, 'r+'))
+  } catch (error) {
+    throw new Error(`a running instance locks ${target}, so packaging would fail with EPERM. Close that `
+      + `application window and re-run. This script never terminates another process. (${error.message})`)
+  }
+}
+
 function build() {
   step('Install dependencies and package (the long step)')
-  const environment = { ...process.env, ELECTRON_MIRROR: electronMirror }
+  assertPackagingTargetUnlocked()
+  const environment = {
+    ...process.env,
+    ELECTRON_MIRROR: electronMirror,
+    // pnpm purges the modules directory when the workspace state changed under it, and without a
+    // TTY it aborts asking for confirmation. The build is non-interactive by design, and the
+    // variable also reaches the nested pnpm runs the packaging step starts.
+    npm_config_confirm_modules_purge: 'false',
+  }
   info(`ELECTRON_MIRROR=${electronMirror}`)
   try {
-    run('pnpm', ['install'], { cwd: checkout, env: environment })
+    run('pnpm', ['install', '--config.confirmModulesPurge=false'], { cwd: checkout, env: environment })
   } catch (error) {
     throw new Error(`pnpm install failed. A slow or blocked registry is the usual cause: uncomment `
       + `DSH_DESKTOP_NPM_REGISTRY in .env.windows.template (for example https://registry.npmmirror.com) and re-run. ${error.message}`)
