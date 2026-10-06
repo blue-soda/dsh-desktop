@@ -39,7 +39,7 @@ dsh-desktop/
 | `assets/generated/` | 三个仓库资源的**预生成副本**，仅在无法运行 `make-icons.py` 时使用（无 Python/Pillow） |
 | `assets/bin/` | 机器级启动器副本（`dsh.cmd` 进 TUI、`dsh-desktop.cmd` 快速启动、`dsh-desktop-full.cmd` 完整准备、`dsh-desktop.vbs` 无窗口包装） |
 | `assets/bin/dsh-desktop.ico` | **桌面快捷方式图标**。它不在仓库里，`make-icons.py` 也只在 `%USERPROFILE%\bin` 已存在时才写；放进包里可去掉"先拷脚本再生成"的顺序依赖 |
-| `maintenance/defender-exclusions.cmd` | 添加/移除 Windows Defender 排除项，消除冷启动时的实时扫描成本。自助提权，`-Remove` 可撤销；**内部用一行内联 `powershell -NoProfile -Command "Add-MpPreference …"`**（见下「为什么还有 powershell.exe」） |
+| `maintenance/defender-exclusions.ps1` | 添加/移除 Defender 排除项（checkout、`~/.dsh`、pnpm store；可用 `-Path` 指定、`-Remove` 撤销）。自助提权且**隐藏窗口**，用户只看到 UAC；与安装版自带的那份是同一形态 |
 | `maintenance/set-taskbar-identity.cmd` | 把同一个 AUMID 写进桌面与开始菜单快捷方式，修复"固定到任务栏显示 Electron" |
 | `maintenance/shortcut-writer/` | 上面脚本调用的极小 Electron 应用（用 `shell.writeShortcutLink` 写快捷方式并输出 `result.json`） |
 
@@ -87,16 +87,18 @@ dsh-desktop/
 2. 用打包树对一个临时 profile 跑 `loadProfileDirectory` + `createRuntimeResolution`，断言 `skippedBundles` 为空且插件为 `mapped: true`。
 3. 运行时里的插件 `dist` 与 **npm 上同版本**的内容逐文件比对；拉不到 npm 时报告 `SKIP`，**不会伪装通过**。
 
-### 为什么还有 `powershell.exe`
+### 哪里还会用到 `powershell.exe`
 
-Windows 上**添加 Defender 排除项没有非 PowerShell 的受支持接口**：只有 `Add-MpPreference`，而直接改写排除项的注册表值在篡改防护（Tamper Protection）下不可靠。所以脚本内部会调用系统自带的 `powershell.exe`，但都是**一行内联调用**，仓库里不存在 `.ps1` 文件：
+**构建本身不用它**：`build-release.cmd` 只调用 `node tools\*.mjs`，哈希、JSON、探针、发布都在 Node 里完成；快捷方式的 AUMID 走 Electron 的 `shell.writeShortcutLink`。
 
-| 步骤 | 实现 | 依赖系统 `powershell.exe`？ |
+仓库里保留两个 `.ps1`，因为 Windows 上**添加 Defender 排除项没有非 PowerShell 的受支持接口**——只有 `Add-MpPreference`，而直接改写排除项的注册表值在篡改防护（Tamper Protection）下不可靠：
+
+| 文件 | 作用 | 说明 |
 |---|---|---|
-| 构建、哈希、JSON、探针、发布 | `tools\*.mjs`（Node） | ❌ |
-| 快捷方式 AUMID 写入 | Electron 的 `shell.writeShortcutLink` | ❌（只用 `node.exe` 打印结果） |
-| **写入 Defender 排除项** | 内联 `powershell -NoProfile -Command "Add-MpPreference -ExclusionPath '…'"` | ✅ 无替代 |
-| **提权** | 内联 `powershell -NoProfile -Command "Start-Process -FilePath '<本脚本>' -Verb RunAs …"` | ✅（或等价的 VBS `ShellExecute … runas`） |
+| `maintenance/defender-exclusions.ps1` | 写入 / 撤销 Defender 排除项 | **与安装版 `resources\defender-exclusions.ps1` 同一形态**；提权用 `Start-Process … -Verb RunAs -WindowStyle Hidden`，被提权的进程不显示窗口，所以只弹 UAC |
+| `assets/apply-icons.ps1` | 重新生成图标资源并应用 `main.ts` 补丁 | 仅在你改图标时运行；已生成的副本在 `assets/generated/` |
+
+用 PowerShell 7（`pwsh`）或系统自带的 Windows PowerShell 运行均可。
 
 ## 自带的 remote 插件
 
@@ -147,7 +149,7 @@ git -C deepseek-harness apply --binary "$env:USERPROFILE\dsh-desktop\packaging\d
 #    设置用户级 DSH_HOME 与 PATH，再重建桌面快捷方式（见下方脚本片段）
 
 # 4) 冷启动优化（可选，会弹 UAC）
-.\maintenance\defender-exclusions.cmd
+.\maintenance\defender-exclusions.ps1
 
 # 5) 任务栏身份（把 AUMID 写进快捷方式，配合已构建的 main.ts）
 .\maintenance\set-taskbar-identity.cmd
@@ -192,19 +194,19 @@ pnpm --filter @deepseek-ai/dsh-desktop run build
 开发版 Desktop 冷启动要读取大量文件（checkout、`~/.dsh`、pnpm store），而 Windows Defender 的**实时扫描会为每个文件收费**——这是冷启动里最贵的一项。脚本给这三个目录加排除项，**整机的实时保护不受影响**：
 
 ```powershell
-# 添加（会弹出 UAC，自助提权）
-.\maintenance\defender-exclusions.cmd
+# 添加（会弹出 UAC，自助提权；提权进程隐藏窗口，所以只看到 UAC 一个窗口）
+.\maintenance\defender-exclusions.ps1
 
 # 撤销（同样提权）
-.\maintenance\defender-exclusions.cmd -Remove
+.\maintenance\defender-exclusions.ps1 -Remove
 
-# 默认排除 %USERPROFILE%\.dsh、%LOCALAPPDATA%\pnpm（存在时）与 %DSH_REPO% 指向的 checkout
-# 也可以显式给出路径：.\maintenance\defender-exclusions.cmd D:\some\path
+# 默认排除 %DSH_REPO%（默认 C:\Workspace\deepseek-harness）、%USERPROFILE%\.dsh、%LOCALAPPDATA%\pnpm
+# 也可以显式给出路径：.\maintenance\defender-exclusions.ps1 -Path D:\some\path
 ```
 
 - 只处理**当前存在**的路径；不存在的会列在结果的 `missing` 里。
 - 结果写入 `%TEMP%\dsh-defender-exclusions.json` 并打印（含生效列表与 `realTime` 状态）。
-- 写入必须走 `Add-MpPreference`，所以脚本内部有一行内联 `powershell -NoProfile -Command`（见「为什么还有 powershell.exe」）。
+- 写入必须走 `Add-MpPreference`，所以这份脚本用 PowerShell 实现，并与安装版保持同一形态（见「哪里还会用到 powershell.exe」）。
 - 排除后这些目录不再被实时扫描——只在你信任其内容时保留。
 - 验证方式：重启 Windows 后给第一次启动计时，退出后再启动一次对比。
 - 实时保护本身保持**开启**，不需要也不建议关闭篡改防护。
