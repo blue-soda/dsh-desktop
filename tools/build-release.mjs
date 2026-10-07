@@ -14,6 +14,8 @@
  *   -Clean          delete build, dist, and leftover dsh-* temp entries, then exit
  *   -Source <url>   upstream git URL (default https://github.com/deepseek-ai/deepseek-harness.git)
  *   -Base <commit>  upstream commit the patch applies to (default 5badb15009)
+ *   -PluginSpec <spec>  bundled plugin spec installed into the clone (default: the patched value).
+ *                       Quote a caret range: -PluginSpec "^0.4.30" -- cmd treats a bare ^ as an escape.
  */
 import { createHash } from 'node:crypto'
 import {
@@ -30,6 +32,9 @@ const kitRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const buildRoot = join(kitRoot, 'build')
 const checkout = join(buildRoot, 'dsh')
 const distDir = join(kitRoot, 'dist')
+
+/** Bundled plugin spec asked for on the command line; overrides the value the patch carries. */
+let requestedPluginSpec
 const patchPath = join(kitRoot, 'packaging', 'dsh-desktop.patch')
 const envTemplate = join(kitRoot, 'packaging', '.env.windows.template')
 const notesTemplate = join(kitRoot, 'packaging', 'release-notes.template.md')
@@ -190,6 +195,21 @@ function resolveCheckout(source, base) {
   run('git', ['-C', checkout, 'apply', '--binary', '--check', patchPath])
   run('git', ['-C', checkout, 'apply', '--binary', patchPath])
   info(`source state: ${capture('git', ['-C', checkout, 'rev-parse', '--short', 'HEAD'])} + dsh-desktop.patch`)
+  if (requestedPluginSpec !== undefined) applyPluginSpec(requestedPluginSpec)
+}
+
+/**
+ * Rewrite the bundled plugin spec inside the clone. The kit patch stays the only source of the
+ * customization, so updating the plugin never edits the checkout the person is working in.
+ * @param spec - Registry spec such as `^0.4.30`.
+ */
+function applyPluginSpec(spec) {
+  const file = join(checkout, 'apps', 'desktop', 'src', 'bundled-extras.ts')
+  const current = readFileSync(file, 'utf8')
+  const next = current.replace(/(BUNDLED_EXTRA_SPEC = ')[^']*(')/, `$1${spec}$2`)
+  if (next === current) throw new Error(`could not set the bundled plugin spec in ${file}`)
+  writeFileSync(file, next)
+  info(`plugin spec: ${spec} (overrides the value in the kit patch)`)
 }
 
 function writeEnvFile() {
@@ -312,6 +332,7 @@ async function main() {
   const source = options.source ?? 'https://github.com/deepseek-ai/deepseek-harness.git'
 
   preflight(tag)
+  requestedPluginSpec = options.pluginspec
   resolveCheckout(source, base)
   writeEnvFile()
   build()
