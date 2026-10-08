@@ -195,7 +195,6 @@ function resolveCheckout(source, base) {
   run('git', ['-C', checkout, 'apply', '--binary', '--check', patchPath])
   run('git', ['-C', checkout, 'apply', '--binary', patchPath])
   info(`source state: ${capture('git', ['-C', checkout, 'rev-parse', '--short', 'HEAD'])} + dsh-desktop.patch`)
-  exemptBundledPluginFromReleaseAge()
   if (requestedPluginSpec !== undefined) applyPluginSpec(requestedPluginSpec)
 }
 
@@ -211,22 +210,6 @@ function applyPluginSpec(spec) {
   if (next === current) throw new Error(`could not set the bundled plugin spec in ${file}`)
   writeFileSync(file, next)
   info(`plugin spec: ${spec} (overrides the value in the kit patch)`)
-}
-
-/**
- * Exempt the bundled plugin from the release-age gate before anything resolves it. The gate keeps a
- * freshly published version out of builds for its cooling-off window, and the code that adds an
- * exclusion entry derives it from the version already resolved, so it cannot admit a newer one.
- */
-function exemptBundledPluginFromReleaseAge() {
-  const file = join(checkout, 'pnpm-workspace.yaml')
-  const current = readFileSync(file, 'utf8')
-  if (current.includes("'@blue-soda/dsh-remote'")) return
-  const key = /^(minimumReleaseAgeExclude:\r?\n)/m.exec(current)
-  if (key === null) throw new Error(`no minimumReleaseAgeExclude list in ${file}`)
-  const eol = key[1].endsWith('\r\n') ? '\r\n' : '\n'
-  writeFileSync(file, current.replace(key[1], `${key[1]}  - '@blue-soda/dsh-remote'${eol}`))
-  info('release-age gate: @blue-soda/dsh-remote exempted for every version')
 }
 
 function writeEnvFile() {
