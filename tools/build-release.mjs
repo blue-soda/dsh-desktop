@@ -206,6 +206,10 @@ function resolveCheckout(source, base) {
 function applyPluginSpec(spec) {
   const file = join(checkout, 'apps', 'desktop', 'src', 'bundled-extras.ts')
   const current = readFileSync(file, 'utf8')
+  if (current.includes(`BUNDLED_EXTRA_SPEC = '${spec}'`)) {
+    info(`plugin spec: ${spec} (already carried by the kit patch)`)
+    return
+  }
   const next = current.replace(/(BUNDLED_EXTRA_SPEC = ')[^']*(')/, `$1${spec}$2`)
   if (next === current) throw new Error(`could not set the bundled plugin spec in ${file}`)
   writeFileSync(file, next)
