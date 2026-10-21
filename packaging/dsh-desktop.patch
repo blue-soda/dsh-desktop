@@ -25668,7 +25668,7 @@ zt~m547Ue24eM`I~XLiIS%CJ@1Zs32rem2xV?g_Qu_J76_I%cJ?%)o1XQ_226dF}rJ
 DgHpq{
 
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index 4b9cd27a8d5..c5a919d5ece 100644
+index 4b9cd27a8d5..ae5f99006d0 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
 @@ -153,8 +153,11 @@ export function createElectronBuilderConfig(
@@ -25685,21 +25685,19 @@ index 4b9cd27a8d5..c5a919d5ece 100644
      ],
      mac: {
        icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
-@@ -253,10 +256,10 @@ export function createElectronBuilderConfig(
+@@ -253,9 +256,9 @@ export function createElectronBuilderConfig(
        installerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
        uninstallerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
        include: fileURLToPath(new URL('./installer.nsh', import.meta.url)),
 -      oneClick: false,
 -      perMachine: false,
 -      allowElevation: false,
--      allowToChangeInstallationDirectory: false,
 +      oneClick: true,
 +      perMachine: true,
 +      allowElevation: true,
-+      allowToChangeInstallationDirectory: true,
+       allowToChangeInstallationDirectory: false,
        installerLanguages: ['en_US', 'zh_CN'],
        differentialPackage: true,
-     },
 diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
 index 9de39d3ff2d..9bfe0c3a3a8 100644
 --- a/apps/desktop/scripts/prepare-dsh.ts
@@ -25740,7 +25738,7 @@ index 9de39d3ff2d..9bfe0c3a3a8 100644
        if (!existsSync(join(DSH_OUTPUT_ROOT, 'node_modules', DESKTOP_HOST_PACKAGE, file))) {
 diff --git a/apps/desktop/src/bundled-extras.ts b/apps/desktop/src/bundled-extras.ts
 new file mode 100644
-index 00000000000..d8d33daf49d
+index 00000000000..1a600704d68
 --- /dev/null
 +++ b/apps/desktop/src/bundled-extras.ts
 @@ -0,0 +1,82 @@
@@ -25757,7 +25755,7 @@ index 00000000000..d8d33daf49d
 +export const BUNDLED_EXTRA_BUNDLES: readonly string[] = ['@blue-soda/dsh-remote']
 +
 +/** Registry spec the runtime project depends on; the caret keeps plugin patch releases flowing into builds. */
-+export const BUNDLED_EXTRA_SPEC = '^0.4.30'
++export const BUNDLED_EXTRA_SPEC = '^0.5.4'
 +
 +/**
 + * Loader patch entries a newly created profile starts with.
