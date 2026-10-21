@@ -328,7 +328,7 @@ async function main() {
   if (options.clean === 'true') { clean(); return }
 
   const tag = options.tag ?? timestampTag()
-  const base = options.base ?? '5badb15009'
+  const base = options.base ?? 'fda98dadd2c299222fe6448f75eba96f3d55407d'
   const source = options.source ?? 'https://github.com/deepseek-ai/deepseek-harness.git'
 
   preflight(tag)
