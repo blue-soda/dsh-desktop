@@ -25983,7 +25983,7 @@ index d8d0e30c4c7..56b87fb22f2 100644
  
  if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unknown) => {
 diff --git a/apps/desktop/src/project-manager.ts b/apps/desktop/src/project-manager.ts
-index 9e96b912375..b97a40f923e 100644
+index 9e96b912375..e51c8223970 100644
 --- a/apps/desktop/src/project-manager.ts
 +++ b/apps/desktop/src/project-manager.ts
 @@ -14,6 +14,7 @@ import {
@@ -25994,16 +25994,16 @@ index 9e96b912375..b97a40f923e 100644
  import {
    DESKTOP_HOST_PACKAGE,
    desktopCorePackageOverrides,
-@@ -22,8 +23,6 @@ import {
+@@ -22,7 +23,7 @@ import {
  import type { DesktopPaths } from './paths.ts'
  import type { DesktopRelease } from './release.ts'
  import { readDesktopRuntime } from './runtime-tree.ts'
 -import { initProfile, removeLinkProjections, sanitizeProfile } from '@deepseek-ai/dsh-app-boot'
--import { PROFILE_TEMPLATES, type ProfileTemplate } from '@deepseek-ai/dsh-official-bundles'
++import { initProfile, PROFILE_PATCH_FILENAME, removeLinkProjections, sanitizeProfile } from '@deepseek-ai/dsh-app-boot'
+ import { PROFILE_TEMPLATES, type ProfileTemplate } from '@deepseek-ai/dsh-official-bundles'
  
  const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
- const DSH_PACKAGE = '@deepseek-ai/dsh'
-@@ -44,7 +43,7 @@ function workspaceFile(overrides: Readonly<Record<string, string>> = {}): string
+@@ -44,7 +45,7 @@ function workspaceFile(overrides: Readonly<Record<string, string>> = {}): string
    const coreBuildKey = coreBuildSpec === undefined
      ? CORE_BUILD_PACKAGE
      : `${CORE_BUILD_PACKAGE}@${coreBuildSpec.replace('file:./', 'file:')}`
@@ -26012,7 +26012,7 @@ index 9e96b912375..b97a40f923e 100644
  }
  
  function migrateProfileSettings(projectDir: string): void {
-@@ -129,16 +128,25 @@ export class DesktopProjectManager {
+@@ -129,16 +130,25 @@ export class DesktopProjectManager {
    }
  }
  
@@ -26042,7 +26042,7 @@ index 9e96b912375..b97a40f923e 100644
    }
    writeJson(join(projectDir, 'package.json'), manifest)
    writeFileSync(
-@@ -169,7 +177,14 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
+@@ -169,7 +179,14 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
    writeFileSync(join(projectDir, 'pnpm-workspace.yaml'), workspaceFile(), { mode: 0o600 })
  }
  
