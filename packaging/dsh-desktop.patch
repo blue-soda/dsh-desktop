@@ -25668,10 +25668,10 @@ zt~m547Ue24eM`I~XLiIS%CJ@1Zs32rem2xV?g_Qu_J76_I%cJ?%)o1XQ_226dF}rJ
 DgHpq{
 
 diff --git a/apps/desktop/scripts/electron-builder-config.mjs b/apps/desktop/scripts/electron-builder-config.mjs
-index 4b9cd27a8d5..620a1b3494a 100644
+index cf0c19e8952..d1e4d90722e 100644
 --- a/apps/desktop/scripts/electron-builder-config.mjs
 +++ b/apps/desktop/scripts/electron-builder-config.mjs
-@@ -153,8 +153,11 @@ export function createElectronBuilderConfig(
+@@ -158,8 +158,11 @@ export function createElectronBuilderConfig(
      extraResources: [
        { from: buildPaths.runtime, to: 'runtime' },
        { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
@@ -25686,10 +25686,10 @@ index 4b9cd27a8d5..620a1b3494a 100644
      mac: {
        icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
 diff --git a/apps/desktop/scripts/prepare-dsh.ts b/apps/desktop/scripts/prepare-dsh.ts
-index 9de39d3ff2d..9bfe0c3a3a8 100644
+index a069888036a..fe1853673b9 100644
 --- a/apps/desktop/scripts/prepare-dsh.ts
 +++ b/apps/desktop/scripts/prepare-dsh.ts
-@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
+@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os'
  import { delimiter, join, relative, resolve } from 'node:path'
  import { desktopNodeEnvironment } from '../src/node-environment.ts'
  import { createRuntimeProjectMetadata } from '../src/project-manager.ts'
@@ -25697,7 +25697,7 @@ index 9de39d3ff2d..9bfe0c3a3a8 100644
  import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
  import { parseDesktopRelease, type DesktopRelease } from '../src/release.ts'
  import {
-@@ -122,7 +123,7 @@ async function main(): Promise<void> {
+@@ -126,7 +127,7 @@ async function main(): Promise<void> {
      const patches = await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:stage-packages', async () => {
        copyFileSync(join(PACKAGE_SET_ROOT, DESKTOP_PACKAGE_SET_FILE), join(BUILD_ROOT, DESKTOP_PACKAGE_SET_FILE))
        cpSync(join(PACKAGE_SET_ROOT, DESKTOP_PACKAGES_DIR), join(BUILD_ROOT, DESKTOP_PACKAGES_DIR), { recursive: true })
@@ -25706,7 +25706,7 @@ index 9de39d3ff2d..9bfe0c3a3a8 100644
        return prepareRuntimePatches(BUILD_ROOT, resolve(APP_ROOT, '..', '..'))
      })
      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:lockfile', () => runPnpm(['install', '--lockfile-only']))
-@@ -145,9 +146,15 @@ async function main(): Promise<void> {
+@@ -151,9 +152,15 @@ async function main(): Promise<void> {
          filter: source => desktopRuntimeFileExclusion(relative(modules, source), target, officeEngine) === undefined,
        })
      })
@@ -25908,10 +25908,10 @@ index 00000000000..fd189f5c125
 +  })
 +}
 diff --git a/apps/desktop/src/locale.ts b/apps/desktop/src/locale.ts
-index 5d9d4607c7d..f744de94bea 100644
+index f5d30b82bad..85c428947ed 100644
 --- a/apps/desktop/src/locale.ts
 +++ b/apps/desktop/src/locale.ts
-@@ -166,6 +166,13 @@ export const en = {
+@@ -175,6 +175,13 @@ export const en = {
    mandatoryCopyFailed: 'Could not copy the link. Select and copy it below.',
    mandatoryAddress: 'Download link',
    mandatoryNotification: 'Return to the application to confirm installation and restart.',
@@ -25925,7 +25925,7 @@ index 5d9d4607c7d..f744de94bea 100644
  } as const
  
  /** Every Desktop locale supplies the complete English key set. */
-@@ -337,6 +344,13 @@ export const zh = {
+@@ -355,6 +362,13 @@ export const zh = {
    mandatoryCopyFailed: '复制失败，请手动选择并复制下方链接。',
    mandatoryAddress: '下载链接',
    mandatoryNotification: '返回应用确认安装并重启。',
@@ -25938,12 +25938,12 @@ index 5d9d4607c7d..f744de94bea 100644
 +  defenderFailed: '排除项添加失败，启动速度可能仍然较慢。',
  } as const satisfies DesktopMessages
  
- /** Locale payload exposed to the Desktop-owned renderer. */
+ /** Japanese copy, checked against the English keys. */
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
-index 2afdfd71948..66473fd92b3 100644
+index d8d0e30c4c7..56b87fb22f2 100644
 --- a/apps/desktop/src/main.ts
 +++ b/apps/desktop/src/main.ts
-@@ -32,6 +32,7 @@ import { DesktopBackendController } from './backend-controller.ts'
+@@ -34,6 +34,7 @@ import { DesktopBackendController } from './backend-controller.ts'
  import { DESKTOP_IPC, SCHEME, assertDesktopSender, type DesktopUpdateState } from './ipc.ts'
  import { readDeviceInfo } from './device-info.ts'
  import { desktopUpdateReadyConfirmation, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale } from './locale.ts'
@@ -25951,7 +25951,7 @@ index 2afdfd71948..66473fd92b3 100644
  import { claimDesktopSingleInstance } from './single-instance.ts'
  import { desktopUpdateChannel } from './update-channel.ts'
  import { DesktopUpdateCoordinator } from './update-coordinator.ts'
-@@ -212,6 +213,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
+@@ -263,6 +264,11 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
      minWidth: 520,
      minHeight: 600,
      show,
@@ -25963,7 +25963,7 @@ index 2afdfd71948..66473fd92b3 100644
      ...(process.platform === 'win32' && primary ? {
        titleBarStyle: 'hidden' as const,
        titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
-@@ -1338,8 +1344,18 @@ async function main(): Promise<void> {
+@@ -1443,8 +1449,18 @@ async function main(): Promise<void> {
      window.webContents.openDevTools({ mode: 'detach' })
    }
    publishUpdate(updateState)
@@ -25983,7 +25983,7 @@ index 2afdfd71948..66473fd92b3 100644
  
  if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unknown) => {
 diff --git a/apps/desktop/src/project-manager.ts b/apps/desktop/src/project-manager.ts
-index 270d87d6b25..141eed763db 100644
+index 9e96b912375..b97a40f923e 100644
 --- a/apps/desktop/src/project-manager.ts
 +++ b/apps/desktop/src/project-manager.ts
 @@ -14,6 +14,7 @@ import {
@@ -25994,17 +25994,16 @@ index 270d87d6b25..141eed763db 100644
  import {
    DESKTOP_HOST_PACKAGE,
    desktopCorePackageOverrides,
-@@ -23,7 +24,8 @@ import type { DesktopPaths } from './paths.ts'
+@@ -22,8 +23,6 @@ import {
+ import type { DesktopPaths } from './paths.ts'
  import type { DesktopRelease } from './release.ts'
  import { readDesktopRuntime } from './runtime-tree.ts'
- import {
--  initProfile, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile, type ProfileTemplate,
-+  initProfile, PROFILE_PATCH_FILENAME, PROFILE_TEMPLATES, removeLinkProjections, sanitizeProfile,
-+  type ProfileTemplate,
- } from '@deepseek-ai/dsh-app-boot'
+-import { initProfile, removeLinkProjections, sanitizeProfile } from '@deepseek-ai/dsh-app-boot'
+-import { PROFILE_TEMPLATES, type ProfileTemplate } from '@deepseek-ai/dsh-official-bundles'
  
  const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
-@@ -45,7 +47,7 @@ function workspaceFile(overrides: Readonly<Record<string, string>> = {}): string
+ const DSH_PACKAGE = '@deepseek-ai/dsh'
+@@ -44,7 +43,7 @@ function workspaceFile(overrides: Readonly<Record<string, string>> = {}): string
    const coreBuildKey = coreBuildSpec === undefined
      ? CORE_BUILD_PACKAGE
      : `${CORE_BUILD_PACKAGE}@${coreBuildSpec.replace('file:./', 'file:')}`
@@ -26013,7 +26012,7 @@ index 270d87d6b25..141eed763db 100644
  }
  
  function migrateProfileSettings(projectDir: string): void {
-@@ -130,16 +132,25 @@ export class DesktopProjectManager {
+@@ -129,16 +128,25 @@ export class DesktopProjectManager {
    }
  }
  
@@ -26043,7 +26042,7 @@ index 270d87d6b25..141eed763db 100644
    }
    writeJson(join(projectDir, 'package.json'), manifest)
    writeFileSync(
-@@ -170,7 +181,14 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
+@@ -169,7 +177,14 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
    writeFileSync(join(projectDir, 'pnpm-workspace.yaml'), workspaceFile(), { mode: 0o600 })
  }
  
@@ -26143,10 +26142,10 @@ index 00000000000..dbf78ddca04
 +  }
 +})
 diff --git a/apps/desktop/tests/main-startup.spec.ts b/apps/desktop/tests/main-startup.spec.ts
-index d9a8f3103b2..ae286951193 100644
+index 3b1e63e00cf..ac8b1cfbc97 100644
 --- a/apps/desktop/tests/main-startup.spec.ts
 +++ b/apps/desktop/tests/main-startup.spec.ts
-@@ -162,6 +162,7 @@ const harness = await vi.hoisted(async () => {
+@@ -184,6 +184,7 @@ const harness = await vi.hoisted(async () => {
      getPath: vi.fn<(name: string) => string>(),
      setAboutPanelOptions: vi.fn<(options: Electron.AboutPanelOptionsOptions) => void>(),
      requestSingleInstanceLock: () => true,
@@ -26191,7 +26190,7 @@ index 1dd76b35f9b..b1d35c7c88e 100644
    })
  
 diff --git a/apps/desktop/tests/welcome-startup.spec.ts b/apps/desktop/tests/welcome-startup.spec.ts
-index 7915248243e..099a11f5276 100644
+index 4ae8743e2ec..fab673f9a1f 100644
 --- a/apps/desktop/tests/welcome-startup.spec.ts
 +++ b/apps/desktop/tests/welcome-startup.spec.ts
 @@ -52,6 +52,7 @@ vi.mock('electron', () => ({
