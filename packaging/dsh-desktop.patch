@@ -25908,7 +25908,7 @@ index 00000000000..fd189f5c125
 +  })
 +}
 diff --git a/apps/desktop/src/locale.ts b/apps/desktop/src/locale.ts
-index f5d30b82bad..85c428947ed 100644
+index f5d30b82bad..24741620a1e 100644
 --- a/apps/desktop/src/locale.ts
 +++ b/apps/desktop/src/locale.ts
 @@ -175,6 +175,13 @@ export const en = {
@@ -25939,6 +25939,90 @@ index f5d30b82bad..85c428947ed 100644
  } as const satisfies DesktopMessages
  
  /** Japanese copy, checked against the English keys. */
+@@ -533,6 +547,13 @@ export const ja = {
+   mandatoryCopyFailed: 'リンクをコピーできませんでした。以下から選択してコピーしてください。',
+   mandatoryAddress: 'ダウンロードリンク',
+   mandatoryNotification: 'アプリに戻り、インストールと再起動を確認してください。',
++  defenderTitle: 'Speed up the first launch?',
++  defenderMessage: 'Excluding this application from Windows Security scanning needs administrator authorization.',
++  defenderDetail: 'DeepSeek Harness reads its bundled runtime on every cold start. Windows Security scans each file the first time it is read, which makes the first launch after an install or a restart noticeably slower.\n\nAdding the installation directory and your Harness home to the exclusion list skips those scans. Real-time protection stays on for everything else, but excluded folders are no longer scanned, so keep them trusted.\n\nWindows asks for administrator authorization next.',
++  defenderAdd: 'Authorize and exclude',
++  defenderLater: 'Not now',
++  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.ps1 from the application folder later.',
++  defenderFailed: 'The exclusion could not be added, so startup may stay slower.',
+ } satisfies Record<keyof typeof en, string>
+ 
+ /** Spanish dictionary, checked against the English keys. */
+@@ -711,6 +732,13 @@ export const es = {
+   mandatoryCopyFailed: 'No se pudo copiar el enlace. Selecciónelo y cópielo a continuación.',
+   mandatoryAddress: 'Enlace de descarga',
+   mandatoryNotification: 'Regrese a la aplicación para confirmar la instalación y reiniciar.',
++  defenderTitle: 'Speed up the first launch?',
++  defenderMessage: 'Excluding this application from Windows Security scanning needs administrator authorization.',
++  defenderDetail: 'DeepSeek Harness reads its bundled runtime on every cold start. Windows Security scans each file the first time it is read, which makes the first launch after an install or a restart noticeably slower.\n\nAdding the installation directory and your Harness home to the exclusion list skips those scans. Real-time protection stays on for everything else, but excluded folders are no longer scanned, so keep them trusted.\n\nWindows asks for administrator authorization next.',
++  defenderAdd: 'Authorize and exclude',
++  defenderLater: 'Not now',
++  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.ps1 from the application folder later.',
++  defenderFailed: 'The exclusion could not be added, so startup may stay slower.',
+ } satisfies DesktopMessages
+ 
+ /** French dictionary, checked against the English keys. */
+@@ -889,6 +917,13 @@ export const fr = {
+   mandatoryCopyFailed: 'Impossible de copier le lien. Sélectionnez-le et copiez-le ci-dessous.',
+   mandatoryAddress: 'Lien de téléchargement',
+   mandatoryNotification: "Revenez à l'application pour confirmer l'installation et redémarrer.",
++  defenderTitle: 'Speed up the first launch?',
++  defenderMessage: 'Excluding this application from Windows Security scanning needs administrator authorization.',
++  defenderDetail: 'DeepSeek Harness reads its bundled runtime on every cold start. Windows Security scans each file the first time it is read, which makes the first launch after an install or a restart noticeably slower.\n\nAdding the installation directory and your Harness home to the exclusion list skips those scans. Real-time protection stays on for everything else, but excluded folders are no longer scanned, so keep them trusted.\n\nWindows asks for administrator authorization next.',
++  defenderAdd: 'Authorize and exclude',
++  defenderLater: 'Not now',
++  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.ps1 from the application folder later.',
++  defenderFailed: 'The exclusion could not be added, so startup may stay slower.',
+ } satisfies DesktopMessages
+ 
+ /** German dictionary, checked against the English keys. */
+@@ -1067,6 +1102,13 @@ export const de = {
+   mandatoryCopyFailed: 'Der Link konnte nicht kopiert werden. Wählen Sie es aus und kopieren Sie es unten.',
+   mandatoryAddress: 'Download-Link',
+   mandatoryNotification: 'Kehren Sie zur Anwendung zurück, um die Installation zu bestätigen und neu zu starten.',
++  defenderTitle: 'Speed up the first launch?',
++  defenderMessage: 'Excluding this application from Windows Security scanning needs administrator authorization.',
++  defenderDetail: 'DeepSeek Harness reads its bundled runtime on every cold start. Windows Security scans each file the first time it is read, which makes the first launch after an install or a restart noticeably slower.\n\nAdding the installation directory and your Harness home to the exclusion list skips those scans. Real-time protection stays on for everything else, but excluded folders are no longer scanned, so keep them trusted.\n\nWindows asks for administrator authorization next.',
++  defenderAdd: 'Authorize and exclude',
++  defenderLater: 'Not now',
++  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.ps1 from the application folder later.',
++  defenderFailed: 'The exclusion could not be added, so startup may stay slower.',
+ } satisfies DesktopMessages
+ 
+ /** Russian dictionary, checked against the English keys. */
+@@ -1245,6 +1287,13 @@ export const ru = {
+   mandatoryCopyFailed: 'Не удалось скопировать ссылку. Выделите и скопируйте его ниже.',
+   mandatoryAddress: 'Ссылка для скачивания',
+   mandatoryNotification: 'Вернитесь в приложение, чтобы подтвердить установку и перезапустить.',
++  defenderTitle: 'Speed up the first launch?',
++  defenderMessage: 'Excluding this application from Windows Security scanning needs administrator authorization.',
++  defenderDetail: 'DeepSeek Harness reads its bundled runtime on every cold start. Windows Security scans each file the first time it is read, which makes the first launch after an install or a restart noticeably slower.\n\nAdding the installation directory and your Harness home to the exclusion list skips those scans. Real-time protection stays on for everything else, but excluded folders are no longer scanned, so keep them trusted.\n\nWindows asks for administrator authorization next.',
++  defenderAdd: 'Authorize and exclude',
++  defenderLater: 'Not now',
++  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.ps1 from the application folder later.',
++  defenderFailed: 'The exclusion could not be added, so startup may stay slower.',
+ } satisfies DesktopMessages
+ 
+ /** Portuguese dictionary, checked against the English keys. */
+@@ -1423,6 +1472,13 @@ export const pt = {
+   mandatoryCopyFailed: 'Não foi possível copiar o link. Selecione e copie abaixo.',
+   mandatoryAddress: 'Link de download',
+   mandatoryNotification: 'Retorne ao aplicativo para confirmar a instalação e reinicie.',
++  defenderTitle: 'Speed up the first launch?',
++  defenderMessage: 'Excluding this application from Windows Security scanning needs administrator authorization.',
++  defenderDetail: 'DeepSeek Harness reads its bundled runtime on every cold start. Windows Security scans each file the first time it is read, which makes the first launch after an install or a restart noticeably slower.\n\nAdding the installation directory and your Harness home to the exclusion list skips those scans. Real-time protection stays on for everything else, but excluded folders are no longer scanned, so keep them trusted.\n\nWindows asks for administrator authorization next.',
++  defenderAdd: 'Authorize and exclude',
++  defenderLater: 'Not now',
++  defenderDeclined: 'The exclusion was not added, so startup may stay slower. You can run defender-exclusions.ps1 from the application folder later.',
++  defenderFailed: 'The exclusion could not be added, so startup may stay slower.',
+ } satisfies DesktopMessages
+ 
+ const dictionaries = { en, zh, ja, es, fr, de, ru, pt }
 diff --git a/apps/desktop/src/main.ts b/apps/desktop/src/main.ts
 index d8d0e30c4c7..56b87fb22f2 100644
 --- a/apps/desktop/src/main.ts
