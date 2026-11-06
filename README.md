@@ -1,6 +1,32 @@
 # DSH Desktop 定制版构建工具（dsh-desktop）
 
-从上游源码产出一份**定制版 DeepSeek Harness Desktop**（Windows x64）：一条命令构建，并发布到 [最新 Release](https://github.com/blue-soda/dsh-desktop/releases/latest)。本仓库同时保存这套定制的**全部真源**——单一补丁、图标资源、提权脚本与启动器，换台电脑也能重建。
+> **本仓库的 Release 已停止更新。** DeepSeek Harness 官方已经开始提供桌面版：请直接下载官方桌面版，再用本仓库的 `customize\dsh-customize.cmd` 把定制项一次加上。下文的构建工具与定制说明保留作为真源与参考，但不再用于发布新版本。
+
+## 现在应该怎么做
+
+1. **下载官方桌面版**（官方渠道是 `download.deepseek.com`，不是 GitHub Releases —— 官方 release 页面只有标签、没有安装包）：
+   - 更新清单（含当前版本与 sha512）：`https://download.deepseek.com/dsh-desk/feeds/win-x64/nightly.yml`
+   - 安装包直链（版本号取自清单里的 `version`）：`https://download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-<version>-win-x64.exe`
+   - 已经装了官方版的话，应用内「检查更新」用的是同一个源，让它自己更新即可。
+2. **安装**：向导欢迎页可以直接改安装目录。
+3. **双击 `customize\dsh-customize.cmd`** 完成定制：
+   - 自动探测安装位置（`-InstallPath` → 脚本所在目录 → 卸载注册表 → 常见目录 → 交互输入）；机器上有多个副本时列出表格让你选，构建目录里的产物不会被自动选中；
+   - 替换窗口/托盘图标，并把多尺寸 `.ico` **嵌入 exe**（快捷方式、资源管理器、Alt-Tab 图标随之更新）；
+   - 把 `@blue-soda/dsh-remote` 装进 profile 并写入种子配置（已存在则跳过）；
+   - 添加 Windows Security 排除项（一次 UAC，提权后隐藏窗口）；
+   - **幂等**：已完成的项自动跳过，重复运行不会重复改动，也不需要重复关闭应用。
+   - 只想先看计划：`dsh-customize.cmd -DryRun`。
+4. **刷新图标缓存**（换了 exe 图标后必须做，否则桌面与快捷方式仍显示旧图标）：
+   ```powershell
+   ie4uinit.exe -show
+   # 仍不更新就重启 Explorer（任务栏会闪一下，随后自动恢复）
+   Stop-Process -Name explorer -Force
+   ```
+   任务栏的固定按钮有独立缓存：取消固定后重新固定。
+
+各定制项与官方版的对应关系见下文各节；脚本的参数、探测顺序与限制见 `customize\README.md`。
+
+从上游源码产出一份**定制版 DeepSeek Harness Desktop**（Windows x64）：一条命令构建。本仓库同时保存这套定制的**全部真源**——单一补丁、图标资源、提权脚本与启动器，换台电脑也能重建。
 
 定制共五块：
 
@@ -17,7 +43,8 @@
 ```
 dsh-desktop/
   README.md
-  build-release.cmd      ← 唯一入口：.\build-release.cmd -Tag r5 -Verify
+  customize/             ← 官方桌面版的一键定制脚本（当前推荐用法）
+  build-release.cmd      ← 需要自己重建安装包时的入口：.\build-release.cmd -Tag r5 -Verify
   packaging/             ← dsh-desktop.patch、.env.windows.template、release-notes.template.md
   assets/                ← 图标素材与生成脚本、启动器副本、main.ts.patch
   maintenance/           ← Defender 排除项、任务栏身份、快捷方式写入器
@@ -28,7 +55,8 @@ dsh-desktop/
 
 | 文件 | 作用 |
 |---|---|
-| `build-release.cmd` + `tools/*.mjs` | **一键构建**：隔离 clone → 打补丁 → 写打包环境 → 装依赖 → 出 exe → 校验和与发行说明（可加 `-Verify` / `-Upload`） |
+| `customize/dsh-customize.cmd` + `dsh-customize.ps1` | **官方桌面版的一键定制**（当前推荐用法）：探测安装位置、换图标并嵌入 exe 图标、装插件与种子、加 Defender 排除项；幂等，可 `-DryRun` 预览 |
+| `build-release.cmd` + `tools/*.mjs` | **一键构建**（保留用于自己重建）：隔离 clone → 打补丁 → 写打包环境 → 装依赖 → 出 exe → 校验和与发行说明（可加 `-Verify` / `-Upload`） |
 | `packaging/dsh-desktop.patch` | **完整**的 DSH 侧改动（图标资源与源码、提权对话框、内置插件机制）。构建时打到上游基线上，是"新电脑一键重建"的唯一真源 |
 | `packaging/.env.windows.template` | 打包环境模板（appId、更新环境、策略源站），构建时写入隔离 checkout |
 | `packaging/release-notes.template.md` | 发行说明模板，构建时自动填入 SHA256、体积与实际解析到的插件版本 |
@@ -46,7 +74,7 @@ dsh-desktop/
 > 图标都能由 `assets/source.png` + `assets/make-icons.py` 重新生成（输出确定），所以 `assets/generated/` 与 `assets/bin/dsh-desktop.ico`
 > 属于**冗余保险**而非必需品。改动余量或裁剪方式后请重新生成，并同步覆盖这两处副本，避免与脚本输出不一致。
 
-## 一键构建（build-release.cmd）
+## 一键构建（build-release.cmd，保留用于重建）
 
 从零产出安装包。**构建完全隔离在本仓库的 `build\` 目录内**（clone 上游、装依赖、打包、产物都在那里），不会改动你其它的 checkout。
 
