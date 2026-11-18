@@ -284,6 +284,48 @@ function Invoke-ExeIcon {
   $script:Changed += "executable icon @ $Root"
 }
 
+function Invoke-ShortcutIcons {
+  param([string]$Root)
+  $exe = Join-Path $Root $ExeName
+  $source = Join-Path (Join-Path $PSScriptRoot 'assets') 'icon.ico'
+  if (-not (Test-Path $source)) { Fail "missing asset $source"; return }
+  if (-not (Test-Path $exe)) { Fail "no executable at $exe"; return }
+  $target = Join-Path $Root 'resources\icon.ico'
+  if ($DryRun) { Say "would place $target and point shortcuts at it"; return }
+  if ((-not (Test-Path $target)) -or ((Get-FileHash $source).Hash -ne (Get-FileHash $target).Hash)) {
+    Copy-Item -LiteralPath $source -Destination $target -Force
+    Ok "icon placed at $target"
+    $script:Changed += "shortcut icon file @ $Root"
+  }
+  # A shortcut whose IconLocation has no path falls back to the generic executable icon, which is
+  # what an installer can leave behind; nothing on disk then decides how the shortcut looks.
+  $wanted = "$target,0"
+  $shell = New-Object -ComObject WScript.Shell
+  $roots = @(
+    (Join-Path $env:USERPROFILE 'Desktop'),
+    (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'),
+    (Join-Path $env:PUBLIC 'Desktop'),
+    (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'))
+  $updated = 0
+  foreach ($dir in $roots) {
+    if (-not (Test-Path $dir)) { continue }
+    foreach ($file in (Get-ChildItem $dir -Recurse -Filter '*.lnk' -ErrorAction SilentlyContinue)) {
+      try { $shortcut = $shell.CreateShortcut($file.FullName) } catch { continue }
+      if ($shortcut.TargetPath -ne $exe) { continue }
+      if ($shortcut.IconLocation -eq $wanted) { continue }
+      try {
+        $shortcut.IconLocation = $wanted
+        $shortcut.Save()
+        $updated++
+      } catch {
+        Warn "could not update $(Split-Path $file.FullName -Leaf): $($_.Exception.Message)"
+      }
+    }
+  }
+  if ($updated -gt 0) { Ok "shortcut icons repointed: $updated"; $script:Changed += "shortcut icons ($updated)" } else { Ok 'shortcut icons already point at the shipped icon.' }
+  & ie4uinit.exe -show 2>&1 | Out-Null
+}
+
 function Get-ProfilePatchPath {
   return (Join-Path (Join-Path (Join-Path $env:USERPROFILE '.dsh') 'profiles') (Join-Path $Profile 'cordis.patch.yml'))
 }
@@ -429,6 +471,10 @@ if ($SkipIcons) { Say 'skipped (-SkipIcons).' } else { foreach ($t in $targets) 
 Write-Host ''
 Write-Host 'Executable icon (shortcut and Explorer)' -ForegroundColor Cyan
 if ($ExeIcon) { foreach ($t in $targets) { Invoke-ExeIcon -Root $t.Path } } else { Say 'skipped (-ExeIcon): the shortcut keeps the stock executable icon.' }
+
+Write-Host ''
+Write-Host 'Shortcut icons' -ForegroundColor Cyan
+if ($SkipIcons) { Say 'skipped (-SkipIcons).' } else { foreach ($t in $targets) { Invoke-ShortcutIcons -Root $t.Path } }
 
 Write-Host ''
 Write-Host 'Profile and plugin' -ForegroundColor Cyan

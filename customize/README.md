@@ -21,6 +21,11 @@ shortcut, Explorer and Alt-Tab icons come from. It needs the application closed,
 up first, and restores it when `rcedit` fails. Only the shell caches icons: run `ie4uinit.exe -show`
 or sign out to see the change.
 
+The shortcut step runs regardless of `-ExeIcon`: it places `assets\icon.ico` at
+`<install>\resources\icon.ico` and repoints every shortcut that starts the installed executable at
+that file. That matters because an installer can leave a shortcut with an empty icon path (`,0`),
+which makes the shortcut show the generic executable icon no matter what the executable embeds.
+
 ## How the install directory is found
 
 Nothing is hard-coded. The script enumerates every copy it can see and labels it:
