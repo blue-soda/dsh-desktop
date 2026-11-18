@@ -22,6 +22,7 @@
    # 仍不更新就重启 Explorer（任务栏会闪一下，随后自动恢复）
    Stop-Process -Name explorer -Force
    ```
+   也可以双击 `customize\restart-explorer.cmd`：它会停掉并重新拉起 Explorer，等价于上面第二条。
    任务栏的固定按钮有独立缓存：取消固定后重新固定。
 
 各定制项与官方版的对应关系见下文各节；脚本的参数、探测顺序与限制见 `customize\README.md`。

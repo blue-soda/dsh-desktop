@@ -52,6 +52,12 @@ Selection: one usable candidate is used directly; several are printed as a numbe
 script asks which one (or `A` for all). With no candidate at all, it asks for a path and validates it.
 Stock copies are preferred; `-IncludeCustom` widens the choice to copies that are already customized.
 
+## Refreshing the shell icons
+
+`restart-explorer.cmd` stops Explorer and starts it again, which reloads shortcut and executable
+icons after a customization run. Use it when a shortcut still shows the previous icon; it is the
+double-click equivalent of `Stop-Process -Name explorer -Force`. Running applications keep running.
+
 ## What it changes
 
 | Target | Change |
