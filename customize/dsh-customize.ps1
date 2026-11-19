@@ -226,13 +226,47 @@ function Resolve-Rcedit {
     Fail "rcedit not found at '$Explicit'."
     return $null
   }
-  $cache = Join-Path $env:LOCALAPPDATA 'electron-builder\Cache\winCodeSign'
+
+  # A copy kept next to this kit survives electron-builder clearing its own cache.
+  $store = Join-Path (Join-Path $env:LOCALAPPDATA 'DSH-tools') 'rcedit-x64.exe'
+  if (Test-Path $store) { return $store }
+
+  $candidates = @()
+  $cache = Join-Path $env:LOCALAPPDATA 'electron-builder\Cache'
   if (Test-Path $cache) {
-    $found = Get-ChildItem $cache -Recurse -File -Filter 'rcedit-x64.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($found) { return $found.FullName }
+    $candidates += Get-ChildItem $cache -Recurse -File -Filter 'rcedit-x64.exe' -ErrorAction SilentlyContinue
   }
+  # electron-winstaller vendors rcedit inside a kit build tree; look only where that package lives.
+  $pnpm = Join-Path (Split-Path $PSScriptRoot -Parent) 'build\dsh\node_modules\.pnpm'
+  if (Test-Path $pnpm) {
+    foreach ($dir in (Get-ChildItem $pnpm -Directory -Filter 'electron-winstaller*' -ErrorAction SilentlyContinue)) {
+      $vendor = Join-Path $dir.FullName 'node_modules\electron-winstaller\vendor'
+      if (Test-Path $vendor) { $candidates += Get-ChildItem $vendor -File -Filter 'rcedit*.exe' -ErrorAction SilentlyContinue }
+    }
+  }
+  $picked = $candidates | Select-Object -First 1
+  if ($picked) {
+    try {
+      New-Item -ItemType Directory (Split-Path $store) -Force | Out-Null
+      Copy-Item -LiteralPath $picked.FullName -Destination $store -Force
+      Say "rcedit kept at $store"
+      return $store
+    } catch {
+      return $picked.FullName
+    }
+  }
+
   $onPath = Get-Command 'rcedit-x64.exe' -ErrorAction SilentlyContinue
   if ($onPath) { return $onPath.Source }
+
+  Warn 'no local rcedit; downloading it once from the electron/rcedit release.'
+  try {
+    New-Item -ItemType Directory (Split-Path $store) -Force | Out-Null
+    Invoke-WebRequest -Uri 'https://github.com/electron/rcedit/releases/download/v0.2.0/rcedit-x64.exe' -OutFile $store -UseBasicParsing -ErrorAction Stop
+    if (Test-Path $store) { Say "rcedit downloaded to $store"; return $store }
+  } catch {
+    Warn "could not download rcedit: $($_.Exception.Message)"
+  }
   return $null
 }
 
